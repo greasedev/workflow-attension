@@ -1,63 +1,34 @@
+import { Agent } from '@greaseclaw/workflow-sdk';
+
 const app = document.querySelector('#app');
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 
-const domains = ['AI Agent', 'Crypto', 'Indie Hacking', 'Robotics', 'Climate Tech', 'Longevity'];
-
-const goals = [
-  ['tech', '技术学习', 'Technical Learning', '学习技术实现、框架、代码和开源项目', 'Engineering,Open Source,Tutorials', '⚙'],
-  ['product', '产品机会', 'Product Opportunities', '发现新产品、新工具和应用场景', 'Product,Tools,Use Cases', '◎'],
-  ['startup', '创业与商业化', 'Startup & Business', '观察创业机会、商业模式和市场趋势', 'Startup,Market,GTM', '↗'],
-  ['invest', '投资研究', 'Investment Research', '跟踪赛道趋势、公司动态和投资机会', 'VC,Trends,Companies', '▣'],
-  ['enterprise', '企业应用', 'Enterprise Applications', '了解企业真实落地、ROI 和部署案例', 'Enterprise,Case Study,ROI', '▥'],
-  ['balanced', '综合关注', 'Balanced Coverage', '保持全面了解，避免视角过窄', 'Balanced', '◌'],
-];
-
-const sources = [
-  ['LangChain', '@LangChainAI', 'L', 'Core', 'Open Source Project', 'Framework,Tool Use', 'Optimistic', 'English', 92, 40, 'Agent 框架核心来源，适合长期跟踪。'],
-  ['Anthropic Engineering', '@AnthropicAI', 'A', 'Core', 'Company Blog', 'Research,Safety', 'Balanced', 'English', 90, 55, '高质量工程与安全视角，补足实践深度。'],
-  ['Simon Willison', '@simonw', 'S', 'Core', 'Developer', 'Tutorials,Analysis', 'Balanced', 'English', 88, 65, '实践型开发者视角，分析清醒且可执行。'],
-  ['Hugging Face', '@huggingface', 'H', 'Core', 'Platform', 'Models,Tools', 'Optimistic', 'English', 90, 50, '开源模型和工具生态的中心节点。'],
-  ['Karpathy', '@karpathy', 'K', 'Core', 'Researcher', 'Training,Insights', 'Balanced', 'English', 92, 55, '顶级技术解释和方向判断来源。'],
-  ['Agent Reliability Notes', '@AgentReliability', 'R', 'Diversity', 'Critical Observer', 'Failure Cases,Reliability', 'Cautious', 'English', 75, 95, '补充失败案例和可靠性视角，降低过度乐观。'],
-  ['AI Enterprise Deploy', '@AIEnterprise', 'E', 'Diversity', 'Newsletter', 'Enterprise,ROI', 'Pragmatic', 'English', 70, 88, '跟踪真实企业部署和 ROI。'],
-  ['中国AI Agent观察', '@AIAgent_CN', 'CN', 'Diversity', 'Media', 'Regional,Startups', 'Balanced', 'Chinese', 75, 85, '提供中文市场和区域视角。'],
-  ['AI Safety Newsletter', '@AISafetyNews', 'Sa', 'Diversity', 'Newsletter', 'Safety,Alignment', 'Cautious', 'English', 68, 90, '补充安全和风险判断。'],
-  ['AutoGPT', '@AutoGPT', 'G', 'Radar', 'Open Source Project', 'Autonomous Agents', 'Optimistic', 'English', 85, 45, '早期自治 Agent 项目，适合观察社区变化。'],
-  ['Composio', '@composio', 'Co', 'Radar', 'Startup', 'Tools,Integration', 'Optimistic', 'English', 82, 55, 'Agent 工具调用方向的新兴平台。'],
-  ['Agent Startup Radar', '@AgentStartups', 'St', 'Radar', 'Newsletter', 'Startups,Funding', 'Optimistic', 'English', 72, 70, '发现早期项目和融资信号。'],
-].map((source, id) => ({
-  id,
-  name: source[0],
-  handle: source[1],
-  avatar: source[2],
-  type: source[3],
-  role: source[4],
-  content: source[5],
-  stance: source[6],
-  lang: source[7],
-  focus: source[8],
-  diversity: source[9],
-  reason: source[10],
-  state: 'new',
-}));
-
-const distribution = [
-  ['技术深度', 35],
-  ['产品工具', 25],
-  ['开源项目', 15],
-  ['商业化', 10],
-  ['批判观点', 10],
-  ['跨领域', 5],
-];
+const agent = new Agent(window.agentOptions || {});
+const apiBaseUrl = process.env.CDP_BASE_URL || 'http://localhost:9222/json/api';
+const listKeys = ['core', 'diversity', 'radar'];
 
 let step = 1;
 let interest = '';
+let error = '';
+let loading = false;
+let model = emptyModel();
 let pickedGoals = [];
-let picked = { core: [], diversity: [], radar: [] };
+let picked = emptyPicked();
 let filters = { type: '全部', stance: '', lang: '' };
-let processing = false;
-let targetStep = 0;
+
+function emptyModel() {
+  return {
+    goals: [],
+    distribution: [],
+    layers: [],
+    sources: [],
+  };
+}
+
+function emptyPicked() {
+  return { core: [], diversity: [], radar: [] };
+}
 
 function render() {
   const labels = ['兴趣领域', '关注目标', '组合结构', '推荐来源', '健康报告'];
@@ -69,25 +40,8 @@ function render() {
           <b>${index + 1}</b>${label}
         </span>`).join('')}</div>
     </div>
-    <main>${processing ? processingView() : views[step]()}</main>`;
+    <main>${loading ? loadingView() : views[step]()}</main>`;
   bindEvents();
-}
-
-function processingView() {
-  const messages = ['分析领域关键词', '优化组合结构', '匹配高质量来源', '计算健康度'];
-  const message = messages[targetStep - 2] || '处理中';
-  setTimeout(() => {
-    processing = false;
-    step = targetStep;
-    render();
-  }, 850);
-
-  return `
-    <section class="view hero">
-      <h2>Agent 正在处理</h2>
-      <p class="lead">${message}${interest ? `：${escapeHtml(interest)}` : ''}...</p>
-      <div class="meter"><i style="width:100%"></i></div>
-    </section>`;
 }
 
 const views = {
@@ -102,14 +56,22 @@ function landingView() {
   return `
     <section class="view hero">
       <h1>Build a focused<br><span class="gold">attention portfolio</span></h1>
-      <p class="lead">建立一个既聚焦、又不形成信息茧房的关注列表</p>
+      <p class="lead">输入一个领域，由 Agent 动态生成目标、结构和候选信息源。</p>
       <div class="row">
-        <input class="input" id="interest" placeholder="输入感兴趣的领域，例如：AI Agent、Web3、量化交易" value="${escapeHtml(interest)}">
-        <button class="primary" id="start">开始生成</button>
+        <input class="input" id="interest" placeholder="输入你感兴趣的领域" value="${escapeHtml(interest)}">
+        <button class="primary" id="start">生成组合</button>
       </div>
-      <p id="err" class="err"></p>
-      <div class="tags" style="margin-top:18px">${domains.map(domain => `<button class="tag" data-domain="${domain}">${domain}</button>`).join('')}</div>
-      <p class="tiny" style="margin-top:28px">We optimize for information balance, not popularity.</p>
+      ${error ? `<p class="err">${escapeHtml(error)}</p>` : '<p id="err" class="err"></p>'}
+      <p class="tiny" style="margin-top:28px">Goals, sources, and analysis are generated through the workflow Agent.</p>
+    </section>`;
+}
+
+function loadingView() {
+  return `
+    <section class="view hero">
+      <h2>Agent 正在生成</h2>
+      <p class="lead">正在为「${escapeHtml(interest)}」生成关注目标、组合结构和候选来源...</p>
+      <div class="meter"><i style="width:100%"></i></div>
     </section>`;
 }
 
@@ -118,21 +80,21 @@ function goalsView() {
     <section class="view">
       ${nav('返回', '生成关注组合', pickedGoals.length === 0)}
       <h2>你关注「${escapeHtml(interest)}」的主要目的是什么？</h2>
-      <p class="lead" style="text-align:center">最多选择 3 个目标，我们会据此调整信息源结构。</p>
-      <div class="grid goals">${goals.map(goalCard).join('')}</div>
+      <p class="lead" style="text-align:center">目标由 Agent 生成，最多选择 3 个。</p>
+      <div class="grid goals">${model.goals.map(goalCard).join('')}</div>
       ${pickedGoals.length ? goalSummary() : ''}
     </section>`;
 }
 
 function goalCard(goal) {
-  const selected = pickedGoals.includes(goal[0]);
+  const selected = pickedGoals.includes(goal.id);
   return `
-    <button class="card select ${selected ? 'on' : ''}" data-goal="${goal[0]}">
-      <div class="icon">${goal[5]}</div>
-      <h3>${goal[1]}</h3>
-      <p class="tiny">${goal[2]}</p>
-      <p class="muted" style="margin-top:10px">${goal[3]}</p>
-      ${goal[4].split(',').map(tag).join('')}
+    <button class="card select ${selected ? 'on' : ''}" data-goal="${escapeAttr(goal.id)}">
+      <div class="icon">${escapeHtml(goal.icon || '◎')}</div>
+      <h3>${escapeHtml(goal.title)}</h3>
+      <p class="tiny">${escapeHtml(goal.titleEn || goal.id)}</p>
+      <p class="muted" style="margin-top:10px">${escapeHtml(goal.description)}</p>
+      ${(goal.tags || []).map(tag).join('')}
     </button>`;
 }
 
@@ -140,17 +102,11 @@ function goalSummary() {
   return `
     <div class="summary">
       <span class="tiny">当前目标</span>
-      <div>${pickedGoals.map(id => tag(goals.find(goal => goal[0] === id)[1])).join('')}</div>
+      <div>${pickedGoals.map(id => tag(model.goals.find(goal => goal.id === id)?.title || id)).join('')}</div>
     </div>`;
 }
 
 function portfolioView() {
-  const layers = [
-    ['Core List', '核心关注', '长期关注的高质量信息源，帮助你保持领域聚焦。', '研究者,开源项目,工程师,技术博客', '20-30'],
-    ['Diversity List', '多元视角', '补充反方、实践、区域和边缘视角，避免信息茧房。', '批判者,企业用户,安全研究,非英语来源', '10-15'],
-    ['Radar List', '趋势雷达', '临时观察新项目和新趋势，30 天后复查是否值得长期关注。', '新工具,早期社区,新创业者,Benchmark', '15-30'],
-  ];
-
   return `
     <section class="view">
       ${nav('返回', '查看推荐来源')}
@@ -158,9 +114,9 @@ function portfolioView() {
       <div class="layout">
         <div class="card">
           <h3>组合配比</h3>
-          <div class="bars">${distribution.map(distributionRow).join('')}</div>
+          <div class="bars">${model.distribution.map(distributionRow).join('')}</div>
         </div>
-        <div class="grid layers">${layers.map(layerCard).join('')}</div>
+        <div class="grid layers">${model.layers.map(layerCard).join('')}</div>
       </div>
     </section>`;
 }
@@ -168,29 +124,29 @@ function portfolioView() {
 function distributionRow(item) {
   return `
     <div class="barrow">
-      <span class="tiny">${item[0]}</span>
-      <div class="meter"><i style="width:${item[1]}%"></i></div>
-      <span class="gold">${item[1]}%</span>
+      <span class="tiny">${escapeHtml(item.label)}</span>
+      <div class="meter"><i style="width:${clampNumber(item.value, 0, 100)}%"></i></div>
+      <span class="gold">${clampNumber(item.value, 0, 100)}%</span>
     </div>`;
 }
 
 function layerCard(layer) {
   return `
     <div class="card">
-      <h3>${layer[0]}</h3>
-      <p class="tiny">${layer[1]}</p>
-      <p class="muted" style="margin-top:12px">${layer[2]}</p>
-      ${layer[3].split(',').map(tag).join('')}
-      <p class="gold" style="margin-top:14px">建议数量：${layer[4]} 个</p>
+      <h3>${escapeHtml(layer.name)}</h3>
+      <p class="tiny">${escapeHtml(layer.nameCn || layer.key)}</p>
+      <p class="muted" style="margin-top:12px">${escapeHtml(layer.description)}</p>
+      ${(layer.tags || []).map(tag).join('')}
+      <p class="gold" style="margin-top:14px">建议数量：${escapeHtml(String(layer.suggested || '动态'))}</p>
     </div>`;
 }
 
 function sourcesView() {
-  const visibleSources = sources.filter(source =>
+  const visibleSources = model.sources.filter(source =>
     source.state !== 'ignore'
     && (filters.type === '全部' || source.type === filters.type)
-    && (!filters.stance || cnStance(source.stance) === filters.stance)
-    && (!filters.lang || cnLang(source.lang) === filters.lang)
+    && (!filters.stance || source.stance === filters.stance)
+    && (!filters.lang || source.lang === filters.lang)
   );
   const stats = health();
 
@@ -209,7 +165,7 @@ function sourcesView() {
         </section>
         <aside class="card side">
           <h3>我的 ${escapeHtml(interest)} 组合</h3>
-          ${['core', 'diversity', 'radar'].map(listBlock).join('')}
+          ${listKeys.map(listBlock).join('')}
         </aside>
       </div>
     </section>`;
@@ -227,24 +183,24 @@ function healthCards(stats) {
 function filtersView() {
   return `
     <h3>筛选器</h3>
-    ${['全部', 'Core', 'Diversity', 'Radar'].map(value => filterButton('filter', value, filters.type === value)).join('')}
+    ${['全部', ...unique(model.sources.map(source => source.type))].map(value => filterButton('filter', value, filters.type === value)).join('')}
     <p class="tiny" style="margin-top:16px">观点倾向</p>
-    ${['乐观', '中立', '谨慎'].map(value => filterButton('stance', value, filters.stance === value)).join('')}
+    ${unique(model.sources.map(source => source.stance)).map(value => filterButton('stance', value, filters.stance === value)).join('')}
     <p class="tiny" style="margin-top:16px">语言</p>
-    ${['英文', '中文'].map(value => filterButton('lang', value, filters.lang === value)).join('')}
+    ${unique(model.sources.map(source => source.lang)).map(value => filterButton('lang', value, filters.lang === value)).join('')}
     <button class="ghost" id="clear" style="margin-top:16px">清除筛选</button>`;
 }
 
 function filterButton(kind, value, active) {
   const cls = kind === 'filter' ? 'filter chip' : 'chip';
-  return `<button class="${cls} ${active ? 'on' : ''}" data-${kind}="${value}">${value}</button>`;
+  return `<button class="${cls} ${active ? 'on' : ''}" data-${kind}="${escapeAttr(value)}">${escapeHtml(value)}</button>`;
 }
 
 function sourceCard(source) {
   const type = source.type.toLowerCase();
-  const metadata = [source.role, source.content, cnStance(source.stance), cnLang(source.lang)];
+  const metadata = [source.role, source.content, source.stance, source.lang].filter(Boolean);
   const actions = source.state === 'add'
-    ? `<p class="ok">✓ 已加入 ${source.type} List</p>`
+    ? `<p class="ok">✓ 已加入 ${escapeHtml(source.type)} List</p>`
     : `<div class="source-actions">
         <button class="primary" data-add="${source.id}">加入关注组合</button>
         <button class="ghost" data-ignore="${source.id}">暂时忽略</button>
@@ -253,11 +209,11 @@ function sourceCard(source) {
   return `
     <article class="card source">
       <div class="source-head">
-        <span class="avatar">${source.avatar}</span>
-        <div><h3>${source.name}</h3><p class="tiny">${source.handle}</p></div>
-        <span class="badge ${type}">${source.type}</span>
+        <span class="avatar">${escapeHtml(source.avatar || initials(source.name))}</span>
+        <div><h3>${escapeHtml(source.name)}</h3><p class="tiny">${escapeHtml(source.handle || '')}</p></div>
+        <span class="badge ${escapeAttr(type)}">${escapeHtml(source.type)}</span>
       </div>
-      <p class="muted">${source.reason}</p>
+      <p class="muted">${escapeHtml(source.reason)}</p>
       <p>${metadata.map(tag).join('')}</p>
       ${actions}
     </article>`;
@@ -265,18 +221,19 @@ function sourceCard(source) {
 
 function listBlock(key) {
   const items = picked[key];
-  const required = { core: 25, diversity: 12, radar: 20 }[key];
+  const layer = model.layers.find(item => item.key === key);
+  const required = layer?.suggested || '动态';
   const body = items.length
     ? items.map((source, index) => `
       <p class="row" style="justify-content:space-between;margin-top:8px">
-        <span><span class="avatar" style="width:24px;height:24px;display:inline-grid;margin-right:8px;font-size:11px">${source.avatar}</span>${source.name}</span>
+        <span><span class="avatar" style="width:24px;height:24px;display:inline-grid;margin-right:8px;font-size:11px">${escapeHtml(source.avatar || initials(source.name))}</span>${escapeHtml(source.name)}</span>
         <button class="mini" data-remove="${key}:${index}">移除</button>
       </p>`).join('')
     : '<p class="tiny" style="margin-top:8px">尚未添加</p>';
 
   return `
     <div style="margin-top:16px">
-      <p><b>${capitalize(key)}</b> <span class="tiny">${items.length}/${required}</span></p>
+      <p><b>${escapeHtml(layer?.name || capitalize(key))}</b> <span class="tiny">${items.length}/${required}</span></p>
       ${body}
     </div>`;
 }
@@ -304,21 +261,22 @@ function reportView() {
         ${analysisCard('建议调整', tips())}
       </div>
       <h3 style="margin:28px 0 14px">最终关注组合</h3>
-      <div class="grid cols">${['core', 'diversity', 'radar'].map(finalList).join('')}</div>
+      <div class="grid cols">${listKeys.map(finalList).join('')}</div>
     </section>`;
 }
 
 function analysisCard(title, items) {
-  return `<div class="card"><h3>${title}</h3><ul>${items.map(item => `<li class="muted">${item}</li>`).join('')}</ul></div>`;
+  return `<div class="card"><h3>${title}</h3><ul>${items.map(item => `<li class="muted">${escapeHtml(item)}</li>`).join('')}</ul></div>`;
 }
 
 function finalList(key) {
   const items = picked[key];
+  const layer = model.layers.find(item => item.key === key);
   const body = items.length
-    ? items.map(source => `<p class="muted" style="margin-top:9px">${source.avatar} · ${source.name}</p>`).join('')
+    ? items.map(source => `<p class="muted" style="margin-top:9px">${escapeHtml(source.avatar || initials(source.name))} · ${escapeHtml(source.name)}</p>`).join('')
     : '<p class="tiny" style="margin-top:12px">尚未添加来源</p>';
 
-  return `<div class="card"><h3>${capitalize(key)} List (${items.length})</h3>${body}</div>`;
+  return `<div class="card"><h3>${escapeHtml(layer?.name || capitalize(key))} (${items.length})</h3>${body}</div>`;
 }
 
 function nav(back, next, disabled = false, id = 'next') {
@@ -335,14 +293,12 @@ function bindEvents() {
     if (event.key === 'Enter') start();
   });
 
-  $$('[data-domain]').forEach(button => button.addEventListener('click', () => {
-    $('#interest').value = button.dataset.domain;
-    interest = button.dataset.domain;
-  }));
-
   $$('[data-goal]').forEach(button => button.addEventListener('click', () => toggleGoal(button.dataset.goal)));
-  $('#back')?.addEventListener('click', () => { step = Math.max(1, step - 1); render(); });
-  $('#next')?.addEventListener('click', () => go(step + 1));
+  $('#back')?.addEventListener('click', () => {
+    step = Math.max(1, step - 1);
+    render();
+  });
+  $('#next')?.addEventListener('click', () => { step = Math.min(5, step + 1); render(); });
   $('#xgo')?.addEventListener('click', autoCreate);
 
   $$('[data-filter]').forEach(button => button.addEventListener('click', () => { filters.type = button.dataset.filter; render(); }));
@@ -356,20 +312,179 @@ function bindEvents() {
   }));
 
   $('#clear')?.addEventListener('click', () => { filters = { type: '全部', stance: '', lang: '' }; render(); });
-  $('#addAll')?.addEventListener('click', () => { sources.filter(source => source.state === 'new').forEach(addSource); render(); });
-  $$('[data-add]').forEach(button => button.addEventListener('click', () => { addSource(sources[button.dataset.add]); render(); }));
-  $$('[data-ignore]').forEach(button => button.addEventListener('click', () => { sources[button.dataset.ignore].state = 'ignore'; render(); }));
+  $('#addAll')?.addEventListener('click', () => { model.sources.filter(source => source.state === 'new').forEach(addSource); render(); });
+  $$('[data-add]').forEach(button => button.addEventListener('click', () => {
+    const source = model.sources.find(item => item.id === button.dataset.add);
+    if (source) addSource(source);
+    render();
+  }));
+  $$('[data-ignore]').forEach(button => button.addEventListener('click', () => {
+    const source = model.sources.find(item => item.id === button.dataset.ignore);
+    if (source) source.state = 'ignore';
+    render();
+  }));
   $$('[data-remove]').forEach(button => button.addEventListener('click', () => removeSource(button.dataset.remove)));
 }
 
-function start() {
+async function start() {
   const value = $('#interest').value.trim();
   if (!value) {
     $('#err').textContent = '请先输入一个感兴趣的领域';
     return;
   }
+
   interest = value;
-  go(2);
+  error = '';
+  loading = true;
+  render();
+
+  try {
+    model = normalizeModel(await generatePortfolio(value));
+    pickedGoals = [];
+    picked = emptyPicked();
+    filters = { type: '全部', stance: '', lang: '' };
+    step = 2;
+  } catch (err) {
+    error = `生成失败：${err.message || err}`;
+    step = 1;
+  } finally {
+    loading = false;
+    render();
+  }
+}
+
+const portfolioSchema = {
+  type: 'object',
+  required: ['goals', 'distribution', 'layers', 'sources'],
+  properties: {
+    goals: {
+      type: 'array',
+      minItems: 4,
+      maxItems: 6,
+      items: {
+        type: 'object',
+        required: ['id', 'title', 'titleEn', 'description', 'tags', 'icon'],
+        properties: {
+          id: { type: 'string' },
+          title: { type: 'string' },
+          titleEn: { type: 'string' },
+          description: { type: 'string' },
+          tags: { type: 'array', items: { type: 'string' } },
+          icon: { type: 'string' },
+        },
+      },
+    },
+    distribution: {
+      type: 'array',
+      items: {
+        type: 'object',
+        required: ['label', 'value'],
+        properties: {
+          label: { type: 'string' },
+          value: { type: 'number' },
+        },
+      },
+    },
+    layers: {
+      type: 'array',
+      items: {
+        type: 'object',
+        required: ['key', 'name', 'nameCn', 'description', 'tags', 'suggested'],
+        properties: {
+          key: { type: 'string', enum: ['core', 'diversity', 'radar'] },
+          name: { type: 'string' },
+          nameCn: { type: 'string' },
+          description: { type: 'string' },
+          tags: { type: 'array', items: { type: 'string' } },
+          suggested: { type: 'string' },
+        },
+      },
+    },
+    sources: {
+      type: 'array',
+      minItems: 12,
+      maxItems: 18,
+      items: {
+        type: 'object',
+        required: ['id', 'name', 'handle', 'avatar', 'type', 'role', 'content', 'stance', 'lang', 'focus', 'diversity', 'reason'],
+        properties: {
+          id: { type: 'string' },
+          name: { type: 'string' },
+          handle: { type: 'string' },
+          avatar: { type: 'string' },
+          type: { type: 'string', enum: ['Core', 'Diversity', 'Radar'] },
+          role: { type: 'string' },
+          content: { type: 'string' },
+          stance: { type: 'string' },
+          lang: { type: 'string' },
+          focus: { type: 'number' },
+          diversity: { type: 'number' },
+          reason: { type: 'string' },
+        },
+      },
+    },
+  },
+};
+
+async function generatePortfolio(topic) {
+  const { text } = await agent.complete(portfolioPrompt(topic), {
+    system: 'You generate concise valid JSON matching the provided schema.',
+    jsonSchema: portfolioSchema,
+  });
+  return parseJson(text);
+}
+
+function portfolioPrompt(topic) {
+  return `Generate an attention portfolio for this topic: ${topic}
+
+Return valid JSON matching the schema. Use real public accounts/projects/publications when known; otherwise use descriptive placeholders useful for the topic. Distribution values must sum to 100.`;
+}
+
+function normalizeModel(value) {
+  const normalized = {
+    goals: Array.isArray(value.goals) ? value.goals.slice(0, 6) : [],
+    distribution: Array.isArray(value.distribution) ? value.distribution : [],
+    layers: normalizeLayers(value.layers),
+    sources: Array.isArray(value.sources) ? value.sources.map(normalizeSource) : [],
+  };
+
+  if (!normalized.goals.length) throw new Error('Agent 没有返回 goals');
+  if (!normalized.sources.length) throw new Error('Agent 没有返回 sources');
+  return normalized;
+}
+
+function normalizeLayers(layers) {
+  const input = Array.isArray(layers) ? layers : [];
+  return listKeys.map(key => {
+    const layer = input.find(item => item?.key === key) || {};
+    return {
+      key,
+      name: layer.name || capitalize(key),
+      nameCn: layer.nameCn || key,
+      description: layer.description || '',
+      tags: Array.isArray(layer.tags) ? layer.tags : [],
+      suggested: layer.suggested || '动态',
+    };
+  });
+}
+
+function normalizeSource(source, index) {
+  const type = listKeys.map(capitalize).includes(source?.type) ? source.type : 'Radar';
+  return {
+    id: String(source?.id || `source-${index}`),
+    name: String(source?.name || 'Unknown source'),
+    handle: String(source?.handle || ''),
+    avatar: String(source?.avatar || initials(source?.name || 'S')).slice(0, 3),
+    type,
+    role: String(source?.role || ''),
+    content: String(source?.content || ''),
+    stance: String(source?.stance || ''),
+    lang: String(source?.lang || ''),
+    focus: clampNumber(source?.focus, 0, 100),
+    diversity: clampNumber(source?.diversity, 0, 100),
+    reason: String(source?.reason || ''),
+    state: 'new',
+  };
 }
 
 function toggleGoal(id) {
@@ -378,13 +493,6 @@ function toggleGoal(id) {
   } else if (pickedGoals.length < 3) {
     pickedGoals.push(id);
   }
-  render();
-}
-
-function go(nextStep) {
-  targetStep = nextStep;
-  processing = nextStep > 1 && nextStep < 5;
-  if (!processing) step = nextStep;
   render();
 }
 
@@ -403,13 +511,13 @@ function removeSource(value) {
   render();
 }
 
-function autoCreate() {
-  const allSources = [...picked.core, ...picked.diversity, ...picked.radar];
+async function autoCreate() {
+  const allSources = listKeys.flatMap(key => picked[key]);
   app.insertAdjacentHTML('beforeend', `
     <div class="modal">
       <section class="card view modal-panel">
         <h2>AI 自动创建 X.com 列表</h2>
-        <p class="lead" style="text-align:center">正在模拟创建 Core / Diversity / Radar 列表</p>
+        <p class="lead" style="text-align:center">通过 workflow SDK page bridge 调用 X.com list API</p>
         <div class="meter"><i id="autoBar"></i></div>
         <div class="log" id="logs"></div>
         <div class="row" style="justify-content:center;margin-top:18px">
@@ -423,42 +531,122 @@ function autoCreate() {
 
   const logs = $('#logs');
   const bar = $('#autoBar');
-  const tasks = [
-    '连接 X.com API',
-    '创建 Core List',
-    '创建 Diversity List',
-    '创建 Radar List',
-    ...allSources.map(source => `添加 ${source.handle}`),
-  ];
+  const selectedLists = listKeys.filter(key => picked[key].length);
+  const totalSteps = Math.max(1, selectedLists.length + allSources.length);
+  let done = 0;
+  const log = (message, status = 'ok') => {
+    logs.insertAdjacentHTML('beforeend', `<p class="${status}">${escapeHtml(message)}</p>`);
+    logs.scrollTop = 9999;
+  };
+  const advance = () => {
+    done += 1;
+    bar.style.width = `${Math.min(100, Math.round(done / totalSteps * 100))}%`;
+  };
 
-  let index = 0;
-  function tick() {
-    bar.style.width = `${Math.round(index / tasks.length * 100)}%`;
-    if (index < tasks.length) {
-      logs.insertAdjacentHTML('beforeend', `<p>✓ ${tasks[index++]}</p>`);
-      logs.scrollTop = 9999;
-      setTimeout(tick, 220);
-    } else {
-      bar.style.width = '100%';
-    }
+  if (!allSources.length) {
+    log('请先添加至少一个关注源。', 'err');
+    bar.style.width = '100%';
+    return;
   }
-  tick();
+
+  try {
+    log('初始化 workflow SDK page bridge');
+    const createdLists = {};
+
+    for (const key of selectedLists) {
+      const listName = `${interest} - ${capitalize(key)}`;
+      log(`创建列表：${listName}`);
+      const result = await workflowApiCall('/v1/custom/twitter-list-create', {
+        method: 'POST',
+        body: {
+          name: listName,
+          description: `${interest} ${capitalize(key)} attention portfolio`,
+          is_private: true,
+        },
+      });
+      createdLists[key] = extractListId(result);
+      log(createdLists[key] ? `列表创建请求完成：${createdLists[key]}` : '列表创建请求已提交，未返回 list_id');
+      advance();
+    }
+
+    for (const source of allSources) {
+      const key = source.type.toLowerCase();
+      const listId = createdLists[key];
+      if (!listId) {
+        log(`跳过 ${source.handle || source.name}：缺少 ${source.type} list_id`, 'warn');
+        advance();
+        continue;
+      }
+
+      log(`添加 ${source.handle || source.name} 到 ${source.type} List`);
+      await workflowApiCall('/v1/custom/twitter-list-add', {
+        method: 'POST',
+        body: {
+          list_id: listId,
+          username: (source.handle || source.name).replace(/^@/, ''),
+        },
+      });
+      log(`已提交添加请求：${source.handle || source.name}`);
+      advance();
+    }
+
+    bar.style.width = '100%';
+    log('完成：workflow SDK API 调用流程结束');
+  } catch (err) {
+    bar.style.width = '100%';
+    log(`调用失败：${err.message || err}`, 'err');
+    log('请确认 X.com API/Chrome DevTools 代理已启动，或在 workflow 运行环境中执行。', 'warn');
+  }
+}
+
+async function workflowApiCall(endpoint, options = {}) {
+  const url = `${apiBaseUrl}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
+  const response = await fetch(url, {
+    method: options.method || 'GET',
+    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+    body: options.body ? JSON.stringify(options.body) : undefined,
+  });
+  const contentType = response.headers.get('content-type') || '';
+  const data = contentType.includes('application/json') ? await response.json() : await response.text();
+  if (!response.ok) {
+    throw new Error(typeof data === 'object' && data?.message ? data.message : `Request failed: ${response.status}`);
+  }
+  return data;
+}
+
+function extractListId(data) {
+  const candidates = [data?.list_id, data?.id, data?.data?.list_id, data?.data?.id, data?.task?.extract_data];
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    if (typeof candidate === 'string' && candidate.trim().startsWith('{')) {
+      try {
+        const parsed = JSON.parse(candidate);
+        return parsed.list_id || parsed.id || parsed.data?.list_id || parsed.data?.id || '';
+      } catch {
+        return candidate;
+      }
+    }
+    return String(candidate);
+  }
+  return '';
 }
 
 function health() {
   const core = picked.core.length;
   const diversity = picked.diversity.length;
-  const total = core + diversity + picked.radar.length;
+  const total = listKeys.reduce((sum, key) => sum + picked[key].length, 0);
   return {
-    focus: Math.min(100, 75 + core * 3 - diversity),
-    diversity: Math.min(100, 50 + diversity * 7),
+    focus: Math.min(100, 70 + core * 4 - diversity),
+    diversity: Math.min(100, 45 + diversity * 8),
     redundancy: total > 22 ? '中' : '低',
     cocoon: diversity < 3 ? '高' : diversity < 5 ? '中' : '低',
   };
 }
 
 function quality() {
-  return Math.min(100, 70 + (picked.core.length > 3 ? 12 : 0));
+  const selected = listKeys.flatMap(key => picked[key]);
+  if (!selected.length) return 50;
+  return Math.round(selected.reduce((sum, source) => sum + source.focus, 0) / selected.length);
 }
 
 function novelty() {
@@ -476,7 +664,7 @@ function advantages() {
 function risks() {
   const items = [];
   if (picked.diversity.length < 3) items.push('批判性观点和落地案例偏少');
-  if (!picked.diversity.some(source => source.lang === 'Chinese')) items.push('非英语来源覆盖偏低');
+  if (!picked.diversity.some(source => /中文|Chinese|China/i.test(source.lang))) items.push('非英语来源覆盖偏低');
   if (!picked.radar.length) items.push('缺少新趋势观察');
   return items;
 }
@@ -489,20 +677,39 @@ function tips() {
   return items;
 }
 
-function cnStance(value) {
-  return { Optimistic: '乐观', Balanced: '中立', Cautious: '谨慎', Pragmatic: '务实' }[value] || value;
-}
-
-function cnLang(value) {
-  return value === 'English' ? '英文' : value === 'Chinese' ? '中文' : value;
+function parseJson(text) {
+  const trimmed = text.trim();
+  const withoutFence = trimmed.replace(/^```(?:json)?/i, '').replace(/```$/i, '').trim();
+  const start = withoutFence.indexOf('{');
+  const end = withoutFence.lastIndexOf('}');
+  if (start < 0 || end < start) throw new Error('Agent 返回的内容不是 JSON');
+  return JSON.parse(withoutFence.slice(start, end + 1));
 }
 
 function tag(value) {
-  return `<span class="pill">${value}</span>`;
+  return `<span class="pill">${escapeHtml(value)}</span>`;
+}
+
+function unique(values) {
+  return [...new Set(values.filter(Boolean))];
+}
+
+function initials(value) {
+  return String(value || 'S').split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase();
 }
 
 function capitalize(value) {
-  return value[0].toUpperCase() + value.slice(1);
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function clampNumber(value, min, max) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return min;
+  return Math.min(max, Math.max(min, Math.round(number)));
+}
+
+function escapeAttr(value) {
+  return escapeHtml(value).replace(/`/g, '&#96;');
 }
 
 function escapeHtml(value) {
