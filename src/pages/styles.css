@@ -300,6 +300,7 @@ p { margin: 0; }
 .source-actions { display: flex; gap: 10px; }
 .mini { padding: 7px 10px; font-size: 12px; }
 .ok { color: #87d28e; }
+.warn { color: #ffd36e; }
 
 .health {
   display: grid;

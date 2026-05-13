@@ -30,58 +30,58 @@ export interface ExecutionResult {
  * WorkflowApis interface - methods generated from your API dependencies
  */
 export interface WorkflowApis {
-  block: (username: string) => Promise<ExecutionResult>;
-  follow: (username: string) => Promise<ExecutionResult>;
-  thread: (tweet_id: string, limit?: number) => Promise<ExecutionResult>;
-  search: (query: string, filter?: string, limit?: number) => Promise<ExecutionResult>;
-  likes: (username: string, limit?: number) => Promise<ExecutionResult>;
-  like: (url: string) => Promise<ExecutionResult>;
-  unblock: (username: string) => Promise<ExecutionResult>;
-  bookmarks: (limit?: number) => Promise<ExecutionResult>;
-  timeline: (type?: string, limit?: number) => Promise<ExecutionResult>;
-  trending: (limit?: number) => Promise<ExecutionResult>;
-  article: (tweet_id: string) => Promise<ExecutionResult>;
-  unfollow: (username: string) => Promise<ExecutionResult>;
-  bookmark: (url: string) => Promise<ExecutionResult>;
-  reply: (tweet_id: string, text: string, submit?: boolean) => Promise<ExecutionResult>;
-  profile: (username: string) => Promise<ExecutionResult>;
-  post: (text: string, submit?: boolean) => Promise<ExecutionResult>;
-  bookmarkfolders: () => Promise<ExecutionResult>;
-  listremove: (list_id: string, username: string) => Promise<ExecutionResult>;
-  unbookmark: (url: string) => Promise<ExecutionResult>;
-  delete: (url: string) => Promise<ExecutionResult>;
-  retweet: (url: string) => Promise<ExecutionResult>;
-  bookmarkfolder: (folder_id: string, limit?: number) => Promise<ExecutionResult>;
-  listcreate: (name: string, description?: string, is_private?: boolean) => Promise<ExecutionResult>;
-  hidereply: (url: string) => Promise<ExecutionResult>;
-  download: (username: string, limit?: number) => Promise<ExecutionResult>;
-  replydm: (text: string, max?: number, skip_replied?: unknown) => Promise<ExecutionResult>;
-  tweets: (username: string, limit?: number) => Promise<ExecutionResult>;
-  followers: (user?: string, limit?: number) => Promise<ExecutionResult>;
-  accept: (query: string, max?: number) => Promise<ExecutionResult>;
-  lists: (limit?: number) => Promise<ExecutionResult>;
-  unlike: (url: string) => Promise<ExecutionResult>;
-  quote: (url: string, text: string) => Promise<ExecutionResult>;
-  notifications: (limit?: number) => Promise<ExecutionResult>;
-  unretweet: (url: string) => Promise<ExecutionResult>;
-  listdelete: (list_id: string) => Promise<ExecutionResult>;
-  following: (user?: string, limit?: number) => Promise<ExecutionResult>;
-  listadd: (list_id: string, username: string) => Promise<ExecutionResult>;
-  listtweets: (list_id: string, limit?: number) => Promise<ExecutionResult>;
-  groupset: (user_id: string, group_id: string, dryrun?: boolean) => Promise<ExecutionResult>;
-  groupdelete: (name: string, dryrun?: boolean) => Promise<ExecutionResult>;
-  follow: (user_id: string) => Promise<ExecutionResult>;
-  comments: (id: string, limit?: number) => Promise<ExecutionResult>;
-  search: (keyword: string, limit?: number) => Promise<ExecutionResult>;
-  hot: (limit?: number) => Promise<ExecutionResult>;
-  groupcreate: (name: string, dryrun?: boolean) => Promise<ExecutionResult>;
-  user: (id: string) => Promise<ExecutionResult>;
-  grouplist: () => Promise<ExecutionResult>;
-  groupposts: (group_id: string, count?: unknown) => Promise<ExecutionResult>;
-  publish: (text: string, dryrun?: boolean) => Promise<ExecutionResult>;
-  me: () => Promise<ExecutionResult>;
-  feed: (type?: string, limit?: number) => Promise<ExecutionResult>;
-  post: (id: string) => Promise<ExecutionResult>;
+  twitter_block: (username: string) => Promise<ExecutionResult>;
+  twitter_follow: (username: string) => Promise<ExecutionResult>;
+  twitter_thread: (tweet_id: string, limit?: number) => Promise<ExecutionResult>;
+  twitter_search: (query: string, filter?: string, limit?: number) => Promise<ExecutionResult>;
+  twitter_likes: (username: string, limit?: number) => Promise<ExecutionResult>;
+  twitter_like: (url: string) => Promise<ExecutionResult>;
+  twitter_unblock: (username: string) => Promise<ExecutionResult>;
+  twitter_bookmarks: (limit?: number) => Promise<ExecutionResult>;
+  twitter_timeline: (type?: string, limit?: number) => Promise<ExecutionResult>;
+  twitter_trending: (limit?: number) => Promise<ExecutionResult>;
+  twitter_article: (tweet_id: string) => Promise<ExecutionResult>;
+  twitter_unfollow: (username: string) => Promise<ExecutionResult>;
+  twitter_bookmark: (url: string) => Promise<ExecutionResult>;
+  twitter_reply: (tweet_id: string, text: string, submit?: boolean) => Promise<ExecutionResult>;
+  twitter_profile: (username: string) => Promise<ExecutionResult>;
+  twitter_post: (text: string, submit?: boolean) => Promise<ExecutionResult>;
+  twitter_bookmark_folders: () => Promise<ExecutionResult>;
+  twitter_list_remove: (list_id: string, username: string) => Promise<ExecutionResult>;
+  twitter_unbookmark: (url: string) => Promise<ExecutionResult>;
+  twitter_delete: (url: string) => Promise<ExecutionResult>;
+  twitter_retweet: (url: string) => Promise<ExecutionResult>;
+  twitter_bookmark_folder: (folder_id: string, limit?: number) => Promise<ExecutionResult>;
+  twitter_list_create: (name: string, description?: string, is_private?: boolean) => Promise<ExecutionResult>;
+  twitter_hide_reply: (url: string) => Promise<ExecutionResult>;
+  twitter_download: (username: string, limit?: number) => Promise<ExecutionResult>;
+  twitter_reply_dm: (text: string, max?: number, skip_replied?: unknown) => Promise<ExecutionResult>;
+  twitter_tweets: (username: string, limit?: number) => Promise<ExecutionResult>;
+  twitter_followers: (user?: string, limit?: number) => Promise<ExecutionResult>;
+  twitter_accept: (query: string, max?: number) => Promise<ExecutionResult>;
+  twitter_lists: (limit?: number) => Promise<ExecutionResult>;
+  twitter_unlike: (url: string) => Promise<ExecutionResult>;
+  twitter_quote: (url: string, text: string) => Promise<ExecutionResult>;
+  twitter_notifications: (limit?: number) => Promise<ExecutionResult>;
+  twitter_unretweet: (url: string) => Promise<ExecutionResult>;
+  twitter_list_delete: (list_id: string) => Promise<ExecutionResult>;
+  twitter_following: (user?: string, limit?: number) => Promise<ExecutionResult>;
+  twitter_list_add: (list_id: string, username: string) => Promise<ExecutionResult>;
+  twitter_list_tweets: (list_id: string, limit?: number) => Promise<ExecutionResult>;
+  weibo_group_set: (user_id: string, group_id: string, dryrun?: boolean) => Promise<ExecutionResult>;
+  weibo_group_delete: (name: string, dryrun?: boolean) => Promise<ExecutionResult>;
+  weibo_follow: (user_id: string) => Promise<ExecutionResult>;
+  weibo_comments: (id: string, limit?: number) => Promise<ExecutionResult>;
+  weibo_search: (keyword: string, limit?: number) => Promise<ExecutionResult>;
+  weibo_hot: (limit?: number) => Promise<ExecutionResult>;
+  weibo_group_create: (name: string, dryrun?: boolean) => Promise<ExecutionResult>;
+  weibo_user: (id: string) => Promise<ExecutionResult>;
+  weibo_group_list: () => Promise<ExecutionResult>;
+  weibo_group_posts: (group_id: string, count?: unknown) => Promise<ExecutionResult>;
+  weibo_publish: (text: string, dryrun?: boolean) => Promise<ExecutionResult>;
+  weibo_me: () => Promise<ExecutionResult>;
+  weibo_feed: (type?: string, limit?: number) => Promise<ExecutionResult>;
+  weibo_post: (id: string) => Promise<ExecutionResult>;
 }
 
 
@@ -95,7 +95,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * Block a Twitter user
    * @endpoint /v1/custom/twitter-block
    */
-  async block(username: string): Promise<ExecutionResult> {
+  async twitter_block(username: string): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/twitter-block', {
       method: 'POST',
       body: { username },
@@ -108,7 +108,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * Follow a Twitter user
    * @endpoint /v1/custom/twitter-follow
    */
-  async follow(username: string): Promise<ExecutionResult> {
+  async twitter_follow(username: string): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/twitter-follow', {
       method: 'POST',
       body: { username },
@@ -121,7 +121,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * Get a tweet thread (original + all replies)
    * @endpoint /v1/custom/twitter-thread
    */
-  async thread(tweet_id: string, limit?: number): Promise<ExecutionResult> {
+  async twitter_thread(tweet_id: string, limit?: number): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/twitter-thread', {
       method: 'POST',
       body: { tweet_id, limit },
@@ -134,7 +134,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * Search Twitter/X for tweets
    * @endpoint /v1/custom/twitter-search
    */
-  async search(query: string, filter?: string, limit?: number): Promise<ExecutionResult> {
+  async twitter_search(query: string, filter?: string, limit?: number): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/twitter-search', {
       method: 'POST',
       body: { query, filter, limit },
@@ -147,7 +147,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * Fetch liked tweets of a Twitter user
    * @endpoint /v1/custom/twitter-likes
    */
-  async likes(username: string, limit?: number): Promise<ExecutionResult> {
+  async twitter_likes(username: string, limit?: number): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/twitter-likes', {
       method: 'POST',
       body: { username, limit },
@@ -160,7 +160,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * Like a specific tweet
    * @endpoint /v1/custom/twitter-like
    */
-  async like(url: string): Promise<ExecutionResult> {
+  async twitter_like(url: string): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/twitter-like', {
       method: 'POST',
       body: { url },
@@ -173,7 +173,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * Unblock a Twitter user
    * @endpoint /v1/custom/twitter-unblock
    */
-  async unblock(username: string): Promise<ExecutionResult> {
+  async twitter_unblock(username: string): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/twitter-unblock', {
       method: 'POST',
       body: { username },
@@ -186,7 +186,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * Fetch Twitter/X bookmarks
    * @endpoint /v1/custom/twitter-bookmarks
    */
-  async bookmarks(limit?: number): Promise<ExecutionResult> {
+  async twitter_bookmarks(limit?: number): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/twitter-bookmarks', {
       method: 'POST',
       body: { limit },
@@ -199,7 +199,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * Fetch Twitter timeline (for-you or following)
    * @endpoint /v1/custom/twitter-timeline
    */
-  async timeline(type?: string, limit?: number): Promise<ExecutionResult> {
+  async twitter_timeline(type?: string, limit?: number): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/twitter-timeline', {
       method: 'POST',
       body: { type, limit },
@@ -212,7 +212,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * Twitter/X trending topics
    * @endpoint /v1/custom/twitter-trending
    */
-  async trending(limit?: number): Promise<ExecutionResult> {
+  async twitter_trending(limit?: number): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/twitter-trending', {
       method: 'POST',
       body: { limit },
@@ -225,7 +225,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * Fetch a Twitter Article (long-form content) and export as Markdown
    * @endpoint /v1/custom/twitter-article
    */
-  async article(tweet_id: string): Promise<ExecutionResult> {
+  async twitter_article(tweet_id: string): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/twitter-article', {
       method: 'POST',
       body: { tweet_id },
@@ -238,7 +238,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * Unfollow a Twitter user
    * @endpoint /v1/custom/twitter-unfollow
    */
-  async unfollow(username: string): Promise<ExecutionResult> {
+  async twitter_unfollow(username: string): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/twitter-unfollow', {
       method: 'POST',
       body: { username },
@@ -251,7 +251,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * Bookmark a tweet
    * @endpoint /v1/custom/twitter-bookmark
    */
-  async bookmark(url: string): Promise<ExecutionResult> {
+  async twitter_bookmark(url: string): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/twitter-bookmark', {
       method: 'POST',
       body: { url },
@@ -264,7 +264,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * Reply to a specific tweet
    * @endpoint /v1/custom/twitter-reply
    */
-  async reply(tweet_id: string, text: string, submit?: boolean): Promise<ExecutionResult> {
+  async twitter_reply(tweet_id: string, text: string, submit?: boolean): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/twitter-reply', {
       method: 'POST',
       body: { tweet_id, text, submit },
@@ -277,7 +277,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * Fetch a Twitter user profile (bio, stats, etc.)
    * @endpoint /v1/custom/twitter-profile
    */
-  async profile(username: string): Promise<ExecutionResult> {
+  async twitter_profile(username: string): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/twitter-profile', {
       method: 'POST',
       body: { username },
@@ -290,7 +290,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * Post a new tweet
    * @endpoint /v1/custom/twitter-post
    */
-  async post(text: string, submit?: boolean): Promise<ExecutionResult> {
+  async twitter_post(text: string, submit?: boolean): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/twitter-post', {
       method: 'POST',
       body: { text, submit },
@@ -303,7 +303,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * List your Twitter/X bookmark folders
    * @endpoint /v1/custom/twitter-bookmark-folders
    */
-  async bookmarkfolders(): Promise<ExecutionResult> {
+  async twitter_bookmark_folders(): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/twitter-bookmark-folders', {
       method: 'POST',
     });
@@ -315,7 +315,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * Remove a user from a Twitter/X list you own
    * @endpoint /v1/custom/twitter-list-remove
    */
-  async listremove(list_id: string, username: string): Promise<ExecutionResult> {
+  async twitter_list_remove(list_id: string, username: string): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/twitter-list-remove', {
       method: 'POST',
       body: { list_id, username },
@@ -328,7 +328,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * Remove a tweet from bookmarks
    * @endpoint /v1/custom/twitter-unbookmark
    */
-  async unbookmark(url: string): Promise<ExecutionResult> {
+  async twitter_unbookmark(url: string): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/twitter-unbookmark', {
       method: 'POST',
       body: { url },
@@ -341,7 +341,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * Delete a tweet (must be your own)
    * @endpoint /v1/custom/twitter-delete
    */
-  async delete(url: string): Promise<ExecutionResult> {
+  async twitter_delete(url: string): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/twitter-delete', {
       method: 'POST',
       body: { url },
@@ -354,7 +354,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * Retweet a tweet
    * @endpoint /v1/custom/twitter-retweet
    */
-  async retweet(url: string): Promise<ExecutionResult> {
+  async twitter_retweet(url: string): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/twitter-retweet', {
       method: 'POST',
       body: { url },
@@ -367,7 +367,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * Fetch tweets from a bookmark folder
    * @endpoint /v1/custom/twitter-bookmark-folder
    */
-  async bookmarkfolder(folder_id: string, limit?: number): Promise<ExecutionResult> {
+  async twitter_bookmark_folder(folder_id: string, limit?: number): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/twitter-bookmark-folder', {
       method: 'POST',
       body: { folder_id, limit },
@@ -380,7 +380,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * Create a new Twitter/X list
    * @endpoint /v1/custom/twitter-list-create
    */
-  async listcreate(name: string, description?: string, is_private?: boolean): Promise<ExecutionResult> {
+  async twitter_list_create(name: string, description?: string, is_private?: boolean): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/twitter-list-create', {
       method: 'POST',
       body: { name, description, is_private },
@@ -393,7 +393,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * Hide a reply to your tweet
    * @endpoint /v1/custom/twitter-hide-reply
    */
-  async hidereply(url: string): Promise<ExecutionResult> {
+  async twitter_hide_reply(url: string): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/twitter-hide-reply', {
       method: 'POST',
       body: { url },
@@ -406,7 +406,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * Download media from a Twitter/X user
    * @endpoint /v1/custom/twitter-download
    */
-  async download(username: string, limit?: number): Promise<ExecutionResult> {
+  async twitter_download(username: string, limit?: number): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/twitter-download', {
       method: 'POST',
       body: { username, limit },
@@ -419,7 +419,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * Send DM replies to recent conversations
    * @endpoint /v1/custom/twitter-reply-dm
    */
-  async replydm(text: string, max?: number, skip_replied?: unknown): Promise<ExecutionResult> {
+  async twitter_reply_dm(text: string, max?: number, skip_replied?: unknown): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/twitter-reply-dm', {
       method: 'POST',
       body: { text, max, skip_replied },
@@ -432,7 +432,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * Fetch a user's recent tweets
    * @endpoint /v1/custom/twitter-tweets
    */
-  async tweets(username: string, limit?: number): Promise<ExecutionResult> {
+  async twitter_tweets(username: string, limit?: number): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/twitter-tweets', {
       method: 'POST',
       body: { username, limit },
@@ -445,7 +445,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * Fetch a user's followers via DOM extraction
    * @endpoint /v1/custom/twitter-followers
    */
-  async followers(user?: string, limit?: number): Promise<ExecutionResult> {
+  async twitter_followers(user?: string, limit?: number): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/twitter-followers', {
       method: 'POST',
       body: { user, limit },
@@ -458,7 +458,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * Accept message requests matching keywords
    * @endpoint /v1/custom/twitter-accept
    */
-  async accept(query: string, max?: number): Promise<ExecutionResult> {
+  async twitter_accept(query: string, max?: number): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/twitter-accept', {
       method: 'POST',
       body: { query, max },
@@ -471,7 +471,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * List your Twitter/X lists
    * @endpoint /v1/custom/twitter-lists
    */
-  async lists(limit?: number): Promise<ExecutionResult> {
+  async twitter_lists(limit?: number): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/twitter-lists', {
       method: 'POST',
       body: { limit },
@@ -484,7 +484,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * Unlike a tweet
    * @endpoint /v1/custom/twitter-unlike
    */
-  async unlike(url: string): Promise<ExecutionResult> {
+  async twitter_unlike(url: string): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/twitter-unlike', {
       method: 'POST',
       body: { url },
@@ -497,7 +497,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * Quote tweet with comment
    * @endpoint /v1/custom/twitter-quote
    */
-  async quote(url: string, text: string): Promise<ExecutionResult> {
+  async twitter_quote(url: string, text: string): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/twitter-quote', {
       method: 'POST',
       body: { url, text },
@@ -510,7 +510,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * Fetch Twitter/X notifications via network intercept
    * @endpoint /v1/custom/twitter-notifications
    */
-  async notifications(limit?: number): Promise<ExecutionResult> {
+  async twitter_notifications(limit?: number): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/twitter-notifications', {
       method: 'POST',
       body: { limit },
@@ -523,7 +523,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * Undo a retweet
    * @endpoint /v1/custom/twitter-unretweet
    */
-  async unretweet(url: string): Promise<ExecutionResult> {
+  async twitter_unretweet(url: string): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/twitter-unretweet', {
       method: 'POST',
       body: { url },
@@ -536,7 +536,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * Delete a Twitter/X list
    * @endpoint /v1/custom/twitter-list-delete
    */
-  async listdelete(list_id: string): Promise<ExecutionResult> {
+  async twitter_list_delete(list_id: string): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/twitter-list-delete', {
       method: 'POST',
       body: { list_id },
@@ -549,7 +549,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * Fetch accounts a user follows
    * @endpoint /v1/custom/twitter-following
    */
-  async following(user?: string, limit?: number): Promise<ExecutionResult> {
+  async twitter_following(user?: string, limit?: number): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/twitter-following', {
       method: 'POST',
       body: { user, limit },
@@ -562,7 +562,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * Add a user to a Twitter/X list you own
    * @endpoint /v1/custom/twitter-list-add
    */
-  async listadd(list_id: string, username: string): Promise<ExecutionResult> {
+  async twitter_list_add(list_id: string, username: string): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/twitter-list-add', {
       method: 'POST',
       body: { list_id, username },
@@ -575,7 +575,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * Fetch tweets from a Twitter/X list
    * @endpoint /v1/custom/twitter-list-tweets
    */
-  async listtweets(list_id: string, limit?: number): Promise<ExecutionResult> {
+  async twitter_list_tweets(list_id: string, limit?: number): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/twitter-list-tweets', {
       method: 'POST',
       body: { list_id, limit },
@@ -588,7 +588,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * Set a user's follow group (group_id=0 to remove from all groups)
    * @endpoint /v1/custom/weibo-group-set
    */
-  async groupset(user_id: string, group_id: string, dryrun?: boolean): Promise<ExecutionResult> {
+  async weibo_group_set(user_id: string, group_id: string, dryrun?: boolean): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/weibo-group-set', {
       method: 'POST',
       body: { user_id, group_id, dryrun },
@@ -601,7 +601,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * Delete a Weibo follow group
    * @endpoint /v1/custom/weibo-group-delete
    */
-  async groupdelete(name: string, dryrun?: boolean): Promise<ExecutionResult> {
+  async weibo_group_delete(name: string, dryrun?: boolean): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/weibo-group-delete', {
       method: 'POST',
       body: { name, dryrun },
@@ -614,7 +614,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * Follow a Weibo user
    * @endpoint /v1/custom/weibo-follow
    */
-  async follow(user_id: string): Promise<ExecutionResult> {
+  async weibo_follow(user_id: string): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/weibo-follow', {
       method: 'POST',
       body: { user_id },
@@ -627,7 +627,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * Get comments on a Weibo post
    * @endpoint /v1/custom/weibo-comments
    */
-  async comments(id: string, limit?: number): Promise<ExecutionResult> {
+  async weibo_comments(id: string, limit?: number): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/weibo-comments', {
       method: 'POST',
       body: { id, limit },
@@ -640,7 +640,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * 搜索微博
    * @endpoint /v1/custom/weibo-search
    */
-  async search(keyword: string, limit?: number): Promise<ExecutionResult> {
+  async weibo_search(keyword: string, limit?: number): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/weibo-search', {
       method: 'POST',
       body: { keyword, limit },
@@ -653,7 +653,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * 微博热搜
    * @endpoint /v1/custom/weibo-hot
    */
-  async hot(limit?: number): Promise<ExecutionResult> {
+  async weibo_hot(limit?: number): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/weibo-hot', {
       method: 'POST',
       body: { limit },
@@ -666,7 +666,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * Create a new Weibo follow group
    * @endpoint /v1/custom/weibo-group-create
    */
-  async groupcreate(name: string, dryrun?: boolean): Promise<ExecutionResult> {
+  async weibo_group_create(name: string, dryrun?: boolean): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/weibo-group-create', {
       method: 'POST',
       body: { name, dryrun },
@@ -679,7 +679,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * Get Weibo user profile
    * @endpoint /v1/custom/weibo-user
    */
-  async user(id: string): Promise<ExecutionResult> {
+  async weibo_user(id: string): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/weibo-user', {
       method: 'POST',
       body: { id },
@@ -692,7 +692,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * List Weibo follow groups with group IDs
    * @endpoint /v1/custom/weibo-group-list
    */
-  async grouplist(): Promise<ExecutionResult> {
+  async weibo_group_list(): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/weibo-group-list', {
       method: 'POST',
     });
@@ -704,7 +704,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * Get posts from a follow group
    * @endpoint /v1/custom/weibo-group-posts
    */
-  async groupposts(group_id: string, count?: unknown): Promise<ExecutionResult> {
+  async weibo_group_posts(group_id: string, count?: unknown): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/weibo-group-posts', {
       method: 'POST',
       body: { group_id, count },
@@ -717,7 +717,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * Publish a new Weibo post
    * @endpoint /v1/custom/weibo-publish
    */
-  async publish(text: string, dryrun?: boolean): Promise<ExecutionResult> {
+  async weibo_publish(text: string, dryrun?: boolean): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/weibo-publish', {
       method: 'POST',
       body: { text, dryrun },
@@ -730,7 +730,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * My Weibo profile info
    * @endpoint /v1/custom/weibo-me
    */
-  async me(): Promise<ExecutionResult> {
+  async weibo_me(): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/weibo-me', {
       method: 'POST',
     });
@@ -742,7 +742,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * Fetch Weibo timeline (for-you or following)
    * @endpoint /v1/custom/weibo-feed
    */
-  async feed(type?: string, limit?: number): Promise<ExecutionResult> {
+  async weibo_feed(type?: string, limit?: number): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/weibo-feed', {
       method: 'POST',
       body: { type, limit },
@@ -755,7 +755,7 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * Get a single Weibo post
    * @endpoint /v1/custom/weibo-post
    */
-  async post(id: string): Promise<ExecutionResult> {
+  async weibo_post(id: string): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/weibo-post', {
       method: 'POST',
       body: { id },

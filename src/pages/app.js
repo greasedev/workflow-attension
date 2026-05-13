@@ -427,17 +427,15 @@ const portfolioSchema = {
 };
 
 async function generatePortfolio(topic) {
-  const { text } = await agent.complete(portfolioPrompt(topic), {
+  const result = await agent.complete(portfolioPrompt(topic), {
     system: 'You generate concise valid JSON matching the provided schema.',
     jsonSchema: portfolioSchema,
   });
-  return parseJson(text);
+  return result.json || parseJson(result.text || '');
 }
 
 function portfolioPrompt(topic) {
-  return `Generate an attention portfolio for this topic: ${topic}
-
-Return valid JSON matching the schema. Use real public accounts/projects/publications when known; otherwise use descriptive placeholders useful for the topic. Distribution values must sum to 100.`;
+  return `Generate an attention portfolio for "${topic}". Use real accounts/projects/publications when known.`;
 }
 
 function normalizeModel(value) {

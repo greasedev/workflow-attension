@@ -197,11 +197,11 @@ const portfolioSchema = {
 };
 
 async function generatePortfolio(agent: Agent, topic: string): Promise<PortfolioModel> {
-  const { text } = await agent.complete(portfolioPrompt(topic), {
+  const result = await agent.complete(portfolioPrompt(topic), {
     system: 'You generate concise valid JSON matching the provided schema.',
     jsonSchema: portfolioSchema,
   });
-  const data = parseJson(text) as Partial<PortfolioModel>;
+  const data = (result.json || parseJson(result.text || '')) as Partial<PortfolioModel>;
   return {
     goals: Array.isArray(data.goals) ? data.goals : [],
     distribution: Array.isArray(data.distribution) ? data.distribution : [],
@@ -211,9 +211,7 @@ async function generatePortfolio(agent: Agent, topic: string): Promise<Portfolio
 }
 
 function portfolioPrompt(topic: string) {
-  return `Generate an attention portfolio for this topic: ${topic}
-
-Return valid JSON matching the schema. Use real public accounts/projects/publications when known; otherwise use descriptive placeholders useful for the topic. Distribution values must sum to 100.`;
+  return `Generate an attention portfolio for "${topic}". Use real accounts/projects/publications when known.`;
 }
 
 function parseJson(text: string): unknown {
