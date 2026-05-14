@@ -1,5 +1,5 @@
 import type { Agent, Dexie } from '@greaseclaw/workflow-sdk';
-import type { PortfolioModel, Source } from './types';
+import type { PortfolioModel, Source, TwitterUserCandidate } from './types';
 
 type DbAgent = Pick<Agent, 'getDb'>;
 
@@ -74,7 +74,40 @@ export async function saveKols(agent: DbAgent, topic: string, sources: Source[])
       focus: source.focus || 0,
       diversity: source.diversity || 0,
       reason: source.reason || '',
+      selected: true,
+      candidateSource: 'final',
       source,
+      createdAt: now,
+      updatedAt: now,
+    };
+  }));
+}
+
+export async function saveKolCandidates(agent: DbAgent, topic: string, candidates: TwitterUserCandidate[]): Promise<void> {
+  if (!candidates.length) return;
+  const db = await getPortfolioDb(agent);
+  const interestId = interestIdFor(topic);
+  const now = new Date().toISOString();
+  await db.table('kols').bulkPut(candidates.map((candidate, index) => {
+    const handle = cleanHandle(candidate.handle || candidate.username || candidate.name || `candidate-${index}`);
+    return {
+      id: `${interestId}:${handle.toLowerCase() || index}`,
+      interestId,
+      name: candidate.name || handle,
+      handle,
+      listKey: '',
+      role: '',
+      content: candidate.bio || '',
+      stance: '',
+      lang: '',
+      followers: candidate.followers || 0,
+      verified: Boolean(candidate.verified),
+      focus: 0,
+      diversity: 0,
+      reason: candidate.reason || '',
+      selected: false,
+      candidateSource: candidate.source || 'candidate',
+      rawCandidate: candidate,
       createdAt: now,
       updatedAt: now,
     };

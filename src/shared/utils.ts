@@ -1,7 +1,7 @@
 // Shared utility functions
 
 import type { ExecutionResult } from '../workflows/api';
-import type { SearchTweet, Source, TwitterList } from './types';
+import type { SearchTweet, Source, TwitterList, TwitterUserCandidate } from './types';
 
 export function profileExists(value: ExecutionResult): boolean {
   if (!value) return false;
@@ -132,6 +132,19 @@ export function extractTwitterLists(value: ExecutionResult | unknown): TwitterLi
   return [];
 }
 
+export function extractTwitterUserCandidates(value: ExecutionResult | unknown, source = 'twitter'): TwitterUserCandidate[] {
+  const raw = extractPayload(value);
+  if (Array.isArray(raw)) return raw.map(item => normalizeTwitterUserCandidate(item, source)).filter(Boolean) as TwitterUserCandidate[];
+  if (raw && typeof raw === 'object') {
+    const obj = raw as { data?: unknown; users?: unknown; members?: unknown; results?: unknown; task?: { extract_data?: unknown } };
+    for (const candidate of [obj.data, obj.users, obj.members, obj.results, obj.task?.extract_data]) {
+      const users = extractTwitterUserCandidates(candidate, source);
+      if (users.length) return users;
+    }
+  }
+  return [];
+}
+
 export function sourcesFromSearchTweets(tweets: SearchTweet[], limit = 18): Source[] {
   const byAuthor = new Map<string, { author: string; tweets: SearchTweet[]; score: number }>();
 
@@ -166,6 +179,48 @@ export function sourcesFromSearchTweets(tweets: SearchTweet[], limit = 18): Sour
         state: 'new',
       };
     });
+}
+
+export function candidatesFromSearchTweets(tweets: SearchTweet[], limit = 40): TwitterUserCandidate[] {
+  const byAuthor = new Map<string, SearchTweet[]>();
+
+  for (const tweet of tweets) {
+    const author = cleanHandle(tweet.author || '');
+    if (!author) continue;
+    const current = byAuthor.get(author) || [];
+    current.push(tweet);
+    byAuthor.set(author, current);
+  }
+
+  return [...byAuthor.entries()].slice(0, limit).map(([author, items]) => {
+    const first = items[0] || {};
+    return {
+      name: author,
+      handle: `@${author}`,
+      username: author,
+      bio: '',
+      followers: undefined,
+      verified: undefined,
+      reason: `Appeared in ${items.length} relevant tweet search result(s). Representative tweet: ${String(first.text || '').replace(/\s+/g, ' ').slice(0, 180)}`,
+      source: 'tweet_search',
+    };
+  });
+}
+
+export function candidatesFromSources(sources: Source[], source = 'ai_seed'): TwitterUserCandidate[] {
+  return sources.map((item, index) => {
+    const handle = cleanHandle(item.handle || item.name || `candidate-${index}`);
+    return {
+      name: item.name || handle,
+      handle: handle ? `@${handle}` : '',
+      username: handle,
+      bio: [item.role, item.content, item.stance, item.lang].filter(Boolean).join(' · '),
+      followers: undefined,
+      verified: undefined,
+      reason: item.reason || '',
+      source,
+    };
+  });
 }
 
 export function mergeRecommendedSources(searchSources: Source[], aiSources: Source[], limit = 18, aiPerType = 2): Source[] {
@@ -222,6 +277,47 @@ function normalizeTwitterList(value: unknown): TwitterList | null {
     mode: item.mode ? String(item.mode) : undefined,
     type: item.type ? String(item.type) : undefined,
   };
+}
+
+function normalizeTwitterUserCandidate(value: unknown, source: string): TwitterUserCandidate | null {
+  if (!value || typeof value !== 'object') return null;
+  const item = value as {
+    name?: string;
+    handle?: string;
+    username?: string;
+    screen_name?: string;
+    bio?: string;
+    description?: string;
+    followers?: number | string;
+    followers_count?: number | string;
+    followersCount?: number | string;
+    verified?: boolean;
+    is_blue_verified?: boolean;
+    blue_verified?: boolean;
+    reason?: string;
+  };
+  const handle = cleanHandle(item.handle || item.username || item.screen_name || '');
+  if (!handle && !item.name) return null;
+  return {
+    name: item.name || handle,
+    handle: handle ? `@${handle}` : '',
+    username: handle,
+    bio: item.bio || item.description || '',
+    followers: normalizeCount(item.followers ?? item.followers_count ?? item.followersCount),
+    verified: Boolean(item.verified || item.is_blue_verified || item.blue_verified),
+    reason: item.reason || '',
+    source,
+  };
+}
+
+function normalizeCount(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value !== 'string') return undefined;
+  const text = value.trim().toUpperCase();
+  const number = Number.parseFloat(text.replace(/[^0-9.]/g, ''));
+  if (!Number.isFinite(number)) return undefined;
+  const multiplier = text.includes('M') ? 1000000 : text.includes('K') ? 1000 : 1;
+  return Math.round(number * multiplier);
 }
 
 function extractPayload(value: ExecutionResult | unknown): unknown {

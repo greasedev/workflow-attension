@@ -25,7 +25,6 @@
 import { Agent, type WorkflowContext } from '@greaseclaw/workflow-sdk';
 import { createWorkflowApis, type ExecutionResult } from './api';
 import {
-  profileExists,
   extractListId,
   cleanHandle,
   capitalize,
@@ -114,12 +113,6 @@ async function createXLists(
       }
       if (!listId) {
         skippedAccounts.push({ key, handle: username, reason: 'listcreate did not return list_id' });
-        continue;
-      }
-
-      const profile = await callWithLimit(() => apis.twitter_profile(username));
-      if (!profileExists(profile)) {
-        skippedAccounts.push({ key, handle: username, reason: 'twitter_profile did not find user' });
         continue;
       }
 

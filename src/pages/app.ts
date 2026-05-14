@@ -1,7 +1,6 @@
 import { Agent } from '@greaseclaw/workflow-sdk';
 import { createWorkflowApis, type WorkflowApis } from '../workflows/api';
 import {
-  profileExists,
   extractListId,
   cleanHandle,
   capitalize,
@@ -11,8 +10,9 @@ import {
   sleep,
   extractSearchTweets,
   extractTwitterLists,
-  sourcesFromSearchTweets,
-  mergeRecommendedSources,
+  extractTwitterUserCandidates,
+  candidatesFromSearchTweets,
+  candidatesFromSources,
   initials,
   escapeHtml,
   escapeAttr,
@@ -22,7 +22,10 @@ import {
   searchQueryPrompt,
   aiSourceSchema,
   aiSourcePrompt,
+  candidateFilterSchema,
+  candidateFilterPrompt,
   saveInterestField,
+  saveKolCandidates,
   saveKols,
   saveLists,
   type Source,
@@ -52,6 +55,21 @@ const apiIntervalMs = 15_000;
 const searchQueryLimit = 3;
 const searchResultLimit = 10;
 const twitterListFetchLimit = 100;
+const suggestedKolLimit = 20;
+const listSearchLimit = 30;
+const listSearchQueryLimit = 2;
+const listMembersListLimit = 4;
+const listMembersLimit = 20;
+const profileEnrichmentLimit = 12;
+
+type CandidateChannel = 'ai_seed' | 'tweet_search' | 'twitter_suggested' | 'list_search';
+
+const candidateChannels: Array<{ key: CandidateChannel; label: string; description: string }> = [
+  { key: 'ai_seed', label: 'AI 推荐', description: '由大模型补充少量高置信账号' },
+  { key: 'tweet_search', label: 'Tweet 搜索', description: '从相关推文作者中发现 KOL' },
+  { key: 'twitter_suggested', label: '系统推荐', description: '读取 X.com 推荐关注用户并过滤' },
+  { key: 'list_search', label: 'List 搜索', description: '搜索高关注 List 并读取成员' },
+];
 
 let step = 1;
 let interest = '';
@@ -64,6 +82,8 @@ let picked: Record<string, Source[]> = emptyPicked();
 let filters = { type: '全部', stance: '', lang: '' };
 let ownedLists: TwitterList[] = [];
 let listPlans: Record<ListKey, ListPlan> = emptyListPlans();
+let activeChannels: CandidateChannel[] = candidateChannels.map(channel => channel.key);
+let existingListHandles: string[] = [];
 let nextApiAt = 0;
 
 async function callWithLimit<T>(call: () => Promise<T>): Promise<T> {
@@ -87,6 +107,7 @@ interface NormalizedSource extends Source {
   focus: number;
   diversity: number;
   reason: string;
+  candidateSource: string;
   state: 'new' | 'add' | 'ignore';
 }
 
@@ -281,6 +302,11 @@ function portfolioView(): string {
         <div class="grid layers">${model.layers.map(layerCard).join('')}</div>
       </div>
       <div class="card" style="margin-top:18px">
+        <h3>KOL 候选来源</h3>
+        <p class="tiny" style="margin-top:8px">至少激活 1 个来源；激活越多，候选池越完整，但 API 调用也会更多。</p>
+        <div class="grid cols" style="margin-top:14px">${candidateChannels.map(channelCard).join('')}</div>
+      </div>
+      <div class="card" style="margin-top:18px">
         <h3>X.com 列表准备</h3>
         <p class="tiny" style="margin-top:8px">只会复用你自己创建或已订阅的列表；也可以改为创建新列表。</p>
         <div class="grid cols" style="margin-top:14px">${listKeys.map(listPlanCard).join('')}</div>
@@ -306,6 +332,18 @@ function layerCard(layer: Layer): string {
       ${(layer.tags || []).map(tag).join('')}
       <p class="gold" style="margin-top:14px">建议数量：${escapeHtml(String(layer.suggested || '动态'))}</p>
     </div>`;
+}
+
+function channelCard(channel: { key: CandidateChannel; label: string; description: string }): string {
+  const active = activeChannels.includes(channel.key);
+  const disableLast = active && activeChannels.length === 1;
+  return `
+    <label class="card select ${active ? 'on' : ''}" style="display:block">
+      <input type="checkbox" data-channel="${channel.key}" ${active ? 'checked' : ''} ${disableLast ? 'disabled' : ''}>
+      <h3 style="margin-top:10px">${escapeHtml(channel.label)}</h3>
+      <p class="muted" style="margin-top:8px">${escapeHtml(channel.description)}</p>
+      <p class="tiny" style="margin-top:10px">${active ? '已激活' : '未激活'}</p>
+    </label>`;
 }
 
 function listPlanCard(key: ListKey): string {
@@ -396,6 +434,11 @@ function filterButton(kind: string, value: string, active: boolean): string {
 function sourceCard(source: NormalizedSource): string {
   const type = source.type.toLowerCase();
   const metadata = [source.role, source.content, source.stance, source.lang].filter(Boolean);
+  const sourceTags = source.candidateSource
+    .split(/[,+]/)
+    .map(value => value.trim())
+    .filter(Boolean)
+    .map(sourceLabel);
   const actions = source.state === 'add'
     ? `<p class="ok">✓ 已加入 ${escapeHtml(source.type)} List</p>`
     : `<div class="source-actions">
@@ -411,7 +454,7 @@ function sourceCard(source: NormalizedSource): string {
         <span class="badge ${escapeAttr(type)}">${escapeHtml(source.type)}</span>
       </div>
       <p class="muted">${escapeHtml(source.reason)}</p>
-      <p>${metadata.map(tag).join('')}</p>
+      <p>${[...sourceTags, ...metadata].map(tag).join('')}</p>
       ${actions}
     </article>`;
 }
@@ -499,6 +542,7 @@ function bindEvents() {
   $('#xgo')?.addEventListener('click', autoCreate);
   $$('[data-list-mode]').forEach(input => input.addEventListener('change', () => updateListPlanMode((input as HTMLInputElement).dataset.listMode!)));
   $$('[data-list-select]').forEach(select => select.addEventListener('change', () => updateListPlanSelection((select as HTMLSelectElement).dataset.listSelect!, (select as HTMLSelectElement).value)));
+  $$('[data-channel]').forEach(input => input.addEventListener('change', () => toggleChannel((input as HTMLInputElement).dataset.channel as CandidateChannel)));
 
   $$('[data-filter]').forEach(button => button.addEventListener('click', () => { filters.type = button.dataset.filter!; render(); }));
   $$('[data-stance]').forEach(button => button.addEventListener('click', () => {
@@ -552,6 +596,8 @@ async function start() {
     filters = { type: '全部', stance: '', lang: '' };
     ownedLists = [];
     listPlans = emptyListPlans();
+    activeChannels = candidateChannels.map(channel => channel.key);
+    existingListHandles = [];
     step = 2;
   } catch (err) {
     error = `生成失败：${(err as Error).message || err}`;
@@ -674,6 +720,22 @@ function updateListPlanSelection(key: string, listId: string) {
   render();
 }
 
+function toggleChannel(channel: CandidateChannel) {
+  if (activeChannels.includes(channel)) {
+    if (activeChannels.length === 1) {
+      render();
+      return;
+    }
+    activeChannels = activeChannels.filter(item => item !== channel);
+  } else {
+    activeChannels = [...activeChannels, channel];
+  }
+  model.sources = [];
+  model.searchQueries = [];
+  picked = emptyPicked();
+  render();
+}
+
 async function ensurePortfolioLists(): Promise<boolean> {
   error = '';
   startLoading('准备 X.com 列表', `正在确认 X.com 列表；会复用已选列表，并自动创建缺失的新列表...`, [
@@ -700,6 +762,7 @@ async function ensurePortfolioLists(): Promise<boolean> {
     }
     updateLoading('X.com 列表已准备完成，正在进入推荐生成...', 92, 2);
     await saveLists(agent, interest, Object.values(listPlans));
+    existingListHandles = await readExistingListHandles();
     return true;
   } catch (err) {
     error = `准备 X.com 列表失败：${(err as Error).message || err}`;
@@ -727,13 +790,7 @@ async function generateRecommendedSources() {
   }
 
   error = '';
-  startLoading('生成推荐来源', `正在根据已选择的目标和组合结构，为「${interest}」推断搜索词、补充少量 AI seed，并搜索候选账号...`, [
-    '整理已选目标',
-    '推断搜索词',
-    '生成 AI seed',
-    '搜索 X.com',
-    '合并推荐列表',
-  ]);
+  startLoading('生成推荐来源', loadingIntroText(), recommendationLoadingSteps());
 
   try {
     updateLoading('正在整理已选择的关注目标和组合层...', 14, 0);
@@ -755,29 +812,67 @@ async function generateRecommendedSources() {
   }
 }
 
-async function generateRecommendations(topic: string, selectedGoals: string[], layers: string[]) {
-  updateLoading('正在让 Agent 推断 Twitter/X 搜索词...', 26, 1);
-  const result = await agent.complete(searchQueryPrompt(topic, selectedGoals, layers), {
-    system: 'You generate concise valid JSON matching the provided schema.',
-    jsonSchema: searchQuerySchema,
-  });
-  const data = (result.json || parseJson(result.text || '')) as Partial<PortfolioModel>;
-  const searchQueries = Array.isArray(data.searchQueries) && data.searchQueries.length
-    ? data.searchQueries
-    : [topic];
-  const tweets = [];
-  updateLoading('正在生成少量 AI seed 推荐账号...', 42, 2);
-  const aiSources = await generateAiSeedSources(topic, selectedGoals, layers);
+function loadingIntroText(): string {
+  const activeLabels = candidateChannels
+    .filter(channel => activeChannels.includes(channel.key))
+    .map(channel => channel.label)
+    .join('、');
+  return `正在根据已选择的目标和组合结构，通过「${activeLabels}」生成候选账号...`;
+}
 
-  const queries = searchQueries.slice(0, searchQueryLimit);
-  for (const [index, query] of queries.entries()) {
-    updateLoading(`正在搜索 X.com：${query}`, 52 + Math.round(index / Math.max(1, queries.length) * 30), 3);
-    const response = await callWithLimit(() => apis.twitter_search(query, undefined, searchResultLimit));
-    tweets.push(...extractSearchTweets(response));
+function recommendationLoadingSteps(): string[] {
+  const steps = ['整理已选目标'];
+  if (activeChannels.includes('tweet_search') || activeChannels.includes('list_search')) steps.push('推断搜索词');
+  if (activeChannels.includes('ai_seed')) steps.push('生成 AI seed');
+  if (activeChannels.includes('tweet_search')) steps.push('搜索 Tweet');
+  if (activeChannels.includes('twitter_suggested')) steps.push('读取系统推荐');
+  if (activeChannels.includes('list_search')) steps.push('搜索 List', '读取 List 成员');
+  steps.push('补充 Profile', 'AI 过滤候选', '保存推荐列表');
+  return steps;
+}
+
+function loadingStepIndex(label: string): number {
+  return Math.max(0, loadingState.steps.findIndex(step => step.label === label));
+}
+
+async function generateRecommendations(topic: string, selectedGoals: string[], layers: string[]) {
+  const needsSearchQueries = activeChannels.includes('tweet_search') || activeChannels.includes('list_search');
+  let searchQueries = [topic];
+  if (needsSearchQueries) {
+    updateLoading('正在让 Agent 推断 Twitter/X 搜索词...', 26, loadingStepIndex('推断搜索词'));
+    const result = await agent.complete(searchQueryPrompt(topic, selectedGoals, layers), {
+      system: 'You generate concise valid JSON matching the provided schema.',
+      jsonSchema: searchQuerySchema,
+    });
+    const data = (result.json || parseJson(result.text || '')) as Partial<PortfolioModel>;
+    searchQueries = Array.isArray(data.searchQueries) && data.searchQueries.length
+      ? data.searchQueries
+      : [topic];
   }
-  updateLoading('正在聚合搜索结果和 AI seed，并按 handle 去重...', 88, 4);
-  const searchSources = sourcesFromSearchTweets(tweets, 18);
-  const sources = mergeRecommendedSources(searchSources, aiSources, 18, 2);
+  const candidates = [];
+
+  if (activeChannels.includes('ai_seed')) {
+    updateLoading('正在生成少量 AI seed 推荐账号...', 42, loadingStepIndex('生成 AI seed'));
+    const aiSources = await generateAiSeedSources(topic, selectedGoals, layers);
+    candidates.push(...candidatesFromSources(aiSources, 'ai_seed'));
+  }
+
+  if (activeChannels.includes('tweet_search')) {
+    const queries = searchQueries.slice(0, searchQueryLimit);
+    for (const [index, query] of queries.entries()) {
+      updateLoading(`正在搜索 X.com：${query}`, 52 + Math.round(index / Math.max(1, queries.length) * 30), loadingStepIndex('搜索 Tweet'));
+      const response = await callWithLimit(() => apis.twitter_search(query, undefined, searchResultLimit));
+      candidates.push(...candidatesFromSearchTweets(extractSearchTweets(response)));
+    }
+  }
+
+  candidates.push(...await collectExternalCandidates(searchQueries, activeChannels));
+  await enrichCandidateProfiles(candidates);
+  const filteredCandidates = excludeExistingCandidates(dedupeCandidates(candidates), existingListHandles);
+  await saveKolCandidates(agent, topic, filteredCandidates);
+
+  updateLoading('正在用 AI 统一过滤 KOL 候选...', 82, loadingStepIndex('AI 过滤候选'));
+  const sources = await filterKolCandidates(topic, selectedGoals, layers, filteredCandidates, existingListHandles);
   if (!sources.length) throw new Error('没有生成可推荐账号');
 
   return {
@@ -793,6 +888,118 @@ async function generateAiSeedSources(topic: string, selectedGoals: string[], lay
   });
   const data = (result.json || parseJson(result.text || '')) as Partial<PortfolioModel>;
   return Array.isArray(data.sources) ? data.sources : [];
+}
+
+async function collectExternalCandidates(searchQueries: string[], channels: CandidateChannel[]) {
+  const suggestedCandidates = [];
+
+  const listMemberCandidates = [];
+
+  if (channels.includes('twitter_suggested')) {
+    updateLoading('正在读取 Twitter/X 系统推荐用户...', 48, loadingStepIndex('读取系统推荐'));
+    const suggestedResponse = await callWithLimit(() => apis.twitter_suggested(suggestedKolLimit));
+    suggestedCandidates.push(...extractTwitterUserCandidates(suggestedResponse, 'twitter_suggested'));
+  }
+
+  if (channels.includes('list_search')) {
+    for (const [index, query] of searchQueries.slice(0, listSearchQueryLimit).entries()) {
+      updateLoading(`正在搜索相关 X.com List：${query}`, 52 + index * 6, loadingStepIndex('搜索 List'));
+      const listsResponse = await callWithLimit(() => apis.twitter_list_search(query, listSearchLimit));
+      const lists = pickHighSignalLists(extractTwitterLists(listsResponse), listMembersListLimit);
+      for (const list of lists) {
+        updateLoading(`正在读取 List 成员：${list.name}`, 58 + index * 6, loadingStepIndex('读取 List 成员'));
+        const membersResponse = await callWithLimit(() => apis.twitter_list_members(list.id, listMembersLimit));
+        listMemberCandidates.push(...extractTwitterUserCandidates(membersResponse, `twitter_list_members:${list.name}`));
+      }
+    }
+  }
+
+  return [...suggestedCandidates, ...listMemberCandidates];
+}
+
+async function enrichCandidateProfiles(candidates: unknown[]) {
+  const needsProfile = dedupeCandidates(candidates)
+    .filter(candidate => {
+      const item = candidate as { followers?: number; verified?: boolean; bio?: string };
+      return item.followers === undefined || item.verified === undefined || !item.bio;
+    })
+    .slice(0, profileEnrichmentLimit) as Array<{ handle?: string; username?: string; name?: string; bio?: string; followers?: number; verified?: boolean; reason?: string }>;
+
+  for (const candidate of needsProfile) {
+    const username = cleanHandle(candidate.handle || candidate.username || candidate.name || '');
+    if (!username) continue;
+    updateLoading(`正在补充 @${username} 的 profile 信息...`, 74, loadingStepIndex('补充 Profile'));
+    const response = await callWithLimit(() => apis.twitter_profile(username));
+    const profile = extractTwitterUserCandidates(response, 'twitter_profile')[0];
+    if (!profile) continue;
+    candidate.name = profile.name || candidate.name;
+    candidate.handle = profile.handle || candidate.handle;
+    candidate.username = profile.username || candidate.username;
+    candidate.bio = profile.bio || candidate.bio || '';
+    candidate.followers = profile.followers ?? candidate.followers;
+    candidate.verified = profile.verified ?? candidate.verified;
+    candidate.reason = [candidate.reason, profile.reason].filter(Boolean).join(' ');
+  }
+}
+
+async function filterKolCandidates(topic: string, selectedGoals: string[], layers: string[], candidates: unknown[], excludedHandles: string[] = []): Promise<Source[]> {
+  const deduped = dedupeCandidates(candidates).slice(0, 100);
+  if (!deduped.length) return [];
+  const result = await agent.complete(candidateFilterPrompt(
+    topic,
+    selectedGoals,
+    layers,
+    JSON.stringify(deduped),
+    excludedHandles,
+  ), {
+    system: 'You generate concise valid JSON matching the provided schema.',
+    jsonSchema: candidateFilterSchema,
+  });
+  const data = (result.json || parseJson(result.text || '')) as Partial<PortfolioModel>;
+  return Array.isArray(data.sources) ? data.sources : [];
+}
+
+async function readExistingListHandles(): Promise<string[]> {
+  const handles = [];
+  for (const key of listKeys) {
+    const listId = listPlans[key]?.listId;
+    if (!listId) continue;
+    updateLoading(`正在读取 ${listPlans[key].name} 已有成员，避免重复推荐...`, 88, 2);
+    const response = await callWithLimit(() => apis.twitter_list_members(listId, listMembersLimit));
+    handles.push(...extractTwitterUserCandidates(response, `existing_list:${listPlans[key].name}`)
+      .map(candidate => cleanHandle(candidate.handle || candidate.username || candidate.name || ''))
+      .filter(Boolean));
+  }
+  return unique(handles.map(handle => handle.toLowerCase()));
+}
+
+function dedupeCandidates(candidates: unknown[]) {
+  const seen = new Set<string>();
+  return candidates.filter(candidate => {
+    if (!candidate || typeof candidate !== 'object') return false;
+    const item = candidate as { handle?: string; username?: string; name?: string };
+    const key = cleanHandle(item.handle || item.username || item.name || '').toLowerCase();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function excludeExistingCandidates(candidates: unknown[], excludedHandles: string[]) {
+  const excluded = new Set(excludedHandles.map(handle => cleanHandle(handle).toLowerCase()));
+  return candidates.filter(candidate => {
+    if (!candidate || typeof candidate !== 'object') return false;
+    const item = candidate as { handle?: string; username?: string; name?: string };
+    const key = cleanHandle(item.handle || item.username || item.name || '').toLowerCase();
+    return !key || !excluded.has(key);
+  });
+}
+
+function pickHighSignalLists(lists: TwitterList[], limit: number): TwitterList[] {
+  return lists
+    .filter(list => list.id)
+    .sort((a, b) => (b.followers || 0) - (a.followers || 0) || (b.members || 0) - (a.members || 0))
+    .slice(0, limit);
 }
 
 function normalizeModel(value: unknown): NormalizedModel {
@@ -840,8 +1047,29 @@ function normalizeSource(source: unknown, index: number): NormalizedSource {
     focus: clampNumber(s?.focus, 0, 100),
     diversity: clampNumber(s?.diversity, 0, 100),
     reason: String(s?.reason || ''),
+    candidateSource: String(s?.candidateSource || inferCandidateSource(s?.reason || '')),
     state: 'new',
   };
+}
+
+function sourceLabel(value: string): string {
+  const map: Record<string, string> = {
+    ai_seed: 'AI 推荐',
+    tweet_search: 'Tweet 搜索',
+    twitter_suggested: '系统推荐',
+    twitter_list_members: 'List 搜索',
+    list_search: 'List 搜索',
+  };
+  const key = value.startsWith('twitter_list_members') ? 'twitter_list_members' : value;
+  return map[key] || value;
+}
+
+function inferCandidateSource(reason: string): string {
+  if (/tweet_search|tweet search|推文|tweet/i.test(reason)) return 'tweet_search';
+  if (/suggested|系统推荐/i.test(reason)) return 'twitter_suggested';
+  if (/list/i.test(reason)) return 'twitter_list_members';
+  if (/ai_seed|AI/i.test(reason)) return 'ai_seed';
+  return '';
 }
 
 function toggleGoal(id: string) {
@@ -856,6 +1084,8 @@ function toggleGoal(id: string) {
   filters = { type: '全部', stance: '', lang: '' };
   ownedLists = [];
   listPlans = emptyListPlans();
+  activeChannels = candidateChannels.map(channel => channel.key);
+  existingListHandles = [];
   render();
 }
 
@@ -880,11 +1110,11 @@ async function autoCreate() {
     <div class="modal">
       <section class="card view modal-panel">
         <h2>添加账号到 X.com 列表</h2>
-        <p class="lead" style="text-align:center">复用或新建的列表已在组合结构阶段确认；这里会校验用户后添加到对应列表。</p>
+        <p class="lead" style="text-align:center">复用或新建的列表已在组合结构阶段确认；这里会直接添加到对应列表。</p>
         <div class="meter"><i id="autoBar"></i></div>
         <div class="log" id="logs"></div>
         <div class="row" style="justify-content:center;margin-top:18px">
-          <a class="primary" href="https://x.com/i/lists" target="_blank">查看 X.com 列表</a>
+          <button class="primary" id="openLists">查看 X.com 列表</button>
           <button class="ghost" id="closeAuto">返回报告</button>
         </div>
       </section>
@@ -894,10 +1124,11 @@ async function autoCreate() {
     const modal = $('.modal');
     if (modal) modal.remove();
   });
+  $('#openLists')?.addEventListener('click', openPreparedLists);
 
   const logs = $('#logs');
   const bar = $('#autoBar') as HTMLElement | null;
-  const totalSteps = Math.max(1, allSources.length * 2);
+  const totalSteps = Math.max(1, allSources.length);
   let done = 0;
   const log = (message: string, status = 'ok') => {
     if (logs) {
@@ -938,16 +1169,6 @@ async function autoCreate() {
         continue;
       }
 
-      log(`检查用户是否存在：@${username}`);
-      const profile = await callWithLimit(() => apis.twitter_profile(username));
-      advance();
-
-      if (!profileExists(profile)) {
-        log(`跳过 @${username}：用户不存在或无法读取 profile`, 'warn');
-        advance();
-        continue;
-      }
-
       log(`添加 @${username} 到 ${source.type} List`);
       await callWithLimit(() => apis.twitter_list_add(listId, username));
       log(`已提交添加请求：@${username}`);
@@ -960,6 +1181,17 @@ async function autoCreate() {
     if (bar) bar.style.width = '100%';
     log(`调用失败：${(err as Error).message || err}`, 'err');
     log('请确认 X.com API/Chrome DevTools 代理已启动，或在 workflow 运行环境中执行。', 'warn');
+  }
+}
+
+function openPreparedLists() {
+  const listIds = unique(listKeys.map(key => listPlans[key]?.listId).filter(Boolean));
+  if (!listIds.length) {
+    window.open('https://x.com/i/lists', '_blank', 'noopener');
+    return;
+  }
+  for (const listId of listIds) {
+    window.open(`https://x.com/i/lists/${encodeURIComponent(listId)}`, '_blank', 'noopener');
   }
 }
 

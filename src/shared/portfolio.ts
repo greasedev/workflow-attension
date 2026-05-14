@@ -124,7 +124,7 @@ export const aiSourceSchema: JsonSchema = {
       maxItems: 6,
       items: {
         type: 'object',
-        required: ['name', 'handle', 'type', 'role', 'content', 'stance', 'lang', 'reason'],
+        required: ['name', 'handle', 'type', 'role', 'content', 'stance', 'lang', 'reason', 'candidateSource'],
         properties: {
           name: { type: 'string' },
           handle: { type: 'string' },
@@ -134,6 +134,7 @@ export const aiSourceSchema: JsonSchema = {
           stance: { type: 'string' },
           lang: { type: 'string' },
           reason: { type: 'string' },
+          candidateSource: { type: 'string' },
         },
       },
     },
@@ -153,4 +154,38 @@ Return sources only.
 Generate 1-2 accounts for each type: Core, Diversity, and Radar.
 Only include widely known or highly likely real Twitter/X accounts. Do not invent handles.
 Search API results will remain the main source of recommendations; these AI seed accounts are only a small supplement.`;
+}
+
+export const candidateFilterSchema: JsonSchema = aiSourceSchema;
+
+export function candidateFilterPrompt(
+  topic: string,
+  selectedGoals: string[],
+  layers: string[],
+  candidatesJson: string,
+  excludedHandles: string[] = [],
+): string {
+  const goalsText = selectedGoals.length ? selectedGoals.join(', ') : 'general learning';
+  const layersText = layers.length ? layers.join(', ') : 'Core, Diversity, Radar';
+  const excludedText = excludedHandles.length ? excludedHandles.join(', ') : 'none';
+  return `Filter raw Twitter/X KOL candidates for an attention portfolio.
+
+Topic: ${topic}
+Selected user goals: ${goalsText}
+Confirmed portfolio layers: ${layersText}
+Already in selected user lists, exclude these handles: ${excludedText}
+
+Raw candidates JSON:
+${candidatesJson}
+
+Return sources only.
+Choose only candidates that are clearly relevant to the topic and selected goals.
+Discard generic celebrities, unrelated accounts, inactive-looking accounts, brands unrelated to the topic, and low-information candidates.
+Do not select accounts that are already in the selected user lists.
+Use followers and verified as quality signals, but do not select an account only because it has many followers or is verified.
+Assign each kept account to exactly one type: Core, Diversity, or Radar.
+Prefer accounts with clear handles. Do not invent handles or names.
+Keep the final list small and high precision: 3-9 accounts total.
+Set candidateSource to the source channel(s) that produced the candidate, such as ai_seed, tweet_search, twitter_suggested, or twitter_list_members.
+Use reason to briefly explain why the candidate matched and mention which source(s) it came from.`;
 }

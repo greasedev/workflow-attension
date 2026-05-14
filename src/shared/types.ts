@@ -14,6 +14,7 @@ export type Source = {
   focus?: number;
   diversity?: number;
   reason?: string;
+  candidateSource?: string;
   state?: 'new' | 'add' | 'ignore';
 };
 
@@ -71,4 +72,15 @@ export type TwitterList = {
   followers?: number;
   mode?: string;
   type?: string;
+};
+
+export type TwitterUserCandidate = {
+  name?: string;
+  handle?: string;
+  username?: string;
+  bio?: string;
+  followers?: number;
+  verified?: boolean;
+  reason?: string;
+  source?: string;
 };
