@@ -26,6 +26,9 @@ import {
   cleanHandle,
   capitalize,
   parseJson,
+  sleep,
+  extractSearchTweets,
+  sourcesFromSearchTweets,
   portfolioSchema,
   portfolioPrompt,
   type Portfolio,
@@ -54,7 +57,7 @@ export async function execute(context: WorkflowContext) {
     const topic = typeof params.interest === 'string' && params.interest.trim()
       ? params.interest.trim()
       : context.task;
-    const result = await generatePortfolio(agent, topic);
+    const result = await generatePortfolio(agent, apis, topic);
     return {
       success: true,
       message: `Generated attention portfolio for ${topic}`,
@@ -87,11 +90,11 @@ async function createXLists(apis: ReturnType<typeof createWorkflowApis>, params:
     if (!sources.length) continue;
 
     const name = `${interest} - ${capitalize(key)}`;
-    const response = await apis.twitter_list_create(
+    const response = await callWithLimit(() => apis.twitter_list_create(
       name,
       `${interest} ${capitalize(key)} attention portfolio`,
       true,
-    );
+    ));
     const listId = extractListId(response);
     createdLists.push({ key, name, response, listId });
 
@@ -106,13 +109,13 @@ async function createXLists(apis: ReturnType<typeof createWorkflowApis>, params:
         continue;
       }
 
-      const profile = await apis.twitter_profile(username);
+      const profile = await callWithLimit(() => apis.twitter_profile(username));
       if (!profileExists(profile)) {
         skippedAccounts.push({ key, handle: username, reason: 'twitter_profile did not find user' });
         continue;
       }
 
-      const addResponse = await apis.twitter_list_add(listId, username);
+      const addResponse = await callWithLimit(() => apis.twitter_list_add(listId, username));
       addedAccounts.push({ key, handle: username, response: addResponse });
     }
   }
@@ -120,18 +123,44 @@ async function createXLists(apis: ReturnType<typeof createWorkflowApis>, params:
   return { createdLists, addedAccounts, skippedAccounts };
 }
 
-async function generatePortfolio(agent: Agent, topic: string): Promise<PortfolioModel> {
+async function generatePortfolio(
+  agent: Agent,
+  apis: ReturnType<typeof createWorkflowApis>,
+  topic: string,
+): Promise<PortfolioModel> {
   const result = await agent.complete(portfolioPrompt(topic), {
     system: 'You generate concise valid JSON matching the provided schema.',
     jsonSchema: portfolioSchema,
   });
   const data = (result.json || parseJson(result.text || '')) as Partial<PortfolioModel>;
+  const searchQueries = Array.isArray(data.searchQueries) && data.searchQueries.length
+    ? data.searchQueries
+    : [topic];
+  const tweets = [];
+
+  for (const query of searchQueries.slice(0, 6)) {
+    const response = await callWithLimit(() => apis.twitter_search(query, undefined, 20));
+    tweets.push(...extractSearchTweets(response));
+  }
+
   return {
     goals: Array.isArray(data.goals) ? data.goals : [],
     distribution: Array.isArray(data.distribution) ? data.distribution : [],
     layers: Array.isArray(data.layers) ? data.layers : [],
-    sources: Array.isArray(data.sources) ? data.sources : [],
+    sources: sourcesFromSearchTweets(tweets, 18),
+    searchQueries,
   };
+}
+
+let nextApiAt = 0;
+const apiIntervalMs = 900;
+
+async function callWithLimit<T>(call: () => Promise<T>): Promise<T> {
+  const now = Date.now();
+  const waitMs = Math.max(0, nextApiAt - now);
+  nextApiAt = Math.max(now, nextApiAt) + apiIntervalMs;
+  if (waitMs > 0) await sleep(waitMs);
+  return call();
 }
 
 function normalizePortfolio(value: unknown): Required<Portfolio> {
