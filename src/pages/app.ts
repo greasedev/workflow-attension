@@ -112,7 +112,7 @@ function landingView(): string {
         <button class="primary" id="start">生成组合</button>
       </div>
       ${error ? `<p class="err">${escapeHtml(error)}</p>` : '<p id="err" class="err"></p>'}
-      <p class="tiny" style="margin-top:28px">Goals, sources, and analysis are generated through the workflow Agent.</p>
+      <p class="tiny" style="margin-top:28px">Goals and structure come from Agent; recommended accounts come from Twitter/X search.</p>
     </section>`;
 }
 
@@ -120,7 +120,7 @@ function loadingView(): string {
   return `
     <section class="view hero">
       <h2>Agent 正在生成</h2>
-      <p class="lead">正在为「${escapeHtml(interest)}」生成关注目标、组合结构和候选来源...</p>
+      <p class="lead">正在为「${escapeHtml(interest)}」生成关注目标、组合结构，并搜索候选账号...</p>
       <div class="meter"><i style="width:100%"></i></div>
     </section>`;
 }
@@ -447,7 +447,7 @@ function normalizeModel(value: unknown): NormalizedModel {
   };
 
   if (!normalized.goals.length) throw new Error('Agent 没有返回 goals');
-  if (!normalized.sources.length) throw new Error('Agent 没有返回 sources');
+  if (!normalized.sources.length) throw new Error('Twitter/X 搜索没有返回可推荐账号');
   return normalized;
 }
 
