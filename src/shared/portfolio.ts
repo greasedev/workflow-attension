@@ -77,7 +77,7 @@ export const searchQuerySchema: JsonSchema = {
 export function searchQueryPrompt(topic: string, selectedGoals: string[], layers: string[]): string {
   const goalsText = selectedGoals.length ? selectedGoals.join(', ') : 'general learning';
   const layersText = layers.length ? layers.join(', ') : 'core, diversity, radar';
-  return `Generate Twitter/X search queries for an attention portfolio.
+  return `Generate valid X/Twitter Recent Search API queries for an attention portfolio.
 
 Topic: ${topic}
 Selected user goals: ${goalsText}
@@ -85,7 +85,32 @@ Confirmed portfolio layers: ${layersText}
 
 Do not generate recommended users or sources directly.
 Return searchQueries only.
-Queries should discover active people, projects, companies, newsletters, and critical viewpoints.
+Return 3-6 query strings.
+
+Hard rules for every query:
+- Must be valid for X Recent Search.
+- Must be 512 characters or less.
+- Must include at least one standalone keyword, exact phrase, hashtag, cashtag, or from: operator.
+- Do not output a query made only from conjunction-required operators such as has:media, has:links, has:mentions, is:retweet, lang:en, or place_country:US.
+- Prefer specific grouped keywords: ("exact phrase" OR keyword OR #hashtag).
+- Use parentheses when OR appears with other terms.
+- Use spaces for AND.
+- Use -term or -is:retweet for exclusions.
+- You may use engagement filters like min_replies:20, min_faves:100, and min_retweets:50 to find higher-signal Posts, but only together with standalone keywords or phrases.
+- Keep engagement thresholds realistic for the topic; use higher thresholds for broad topics and lower thresholds for niche topics.
+- Do not negate grouped expressions.
+- Do not use unsupported prose, commas as separators, markdown, comments, or URL encoding.
+- Do not include the word query=.
+- Prefer adding lang:en -is:retweet unless the topic clearly requires another language.
+
+Good query shape examples:
+("AI agents" OR "agentic AI" OR #AIAgents) lang:en -is:retweet
+("robotics" OR "humanoid robot") (startup OR research OR demo) lang:en -is:retweet
+("AI safety" OR alignment OR evals) lang:en -is:retweet
+("AI agents" OR "agentic AI") min_faves:100 min_retweets:20 lang:en -is:retweet
+("AI safety" OR alignment) min_replies:20 lang:en -is:retweet
+
+Generate queries that discover active people, projects, companies, newsletters, and critical viewpoints.
 Include a mix of technical, product, business, safety/criticism, and regional angles that match the selected goals.`;
 }
 

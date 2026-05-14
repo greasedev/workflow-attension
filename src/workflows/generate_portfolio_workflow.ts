@@ -34,6 +34,8 @@ import {
   searchQueryPrompt,
   aiSourceSchema,
   aiSourcePrompt,
+  saveInterestField,
+  saveKols,
   type PortfolioModel,
 } from '../shared';
 
@@ -55,6 +57,8 @@ export async function execute(context: WorkflowContext) {
   console.log("Topic:", topic);
 
   const result = await generatePortfolio(agent, apis, topic);
+  await saveInterestField(agent, topic, result, result.goals.map(goal => goal.title));
+  await saveKols(agent, topic, result.sources);
 
   return {
     success: true,

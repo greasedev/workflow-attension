@@ -22,6 +22,9 @@ import {
   searchQueryPrompt,
   aiSourceSchema,
   aiSourcePrompt,
+  saveInterestField,
+  saveKols,
+  saveLists,
   type Source,
   type Goal,
   type DistributionItem,
@@ -542,6 +545,7 @@ async function start() {
   try {
     updateLoading('正在调用 Agent 生成目标和组合结构...', 32, 1);
     model = normalizeModel(await generateStructure(value));
+    await saveInterestField(agent, value, model);
     updateLoading('组合结构已生成，正在准备下一步...', 92, 2);
     pickedGoals = [];
     picked = emptyPicked();
@@ -586,6 +590,7 @@ async function prepareListPlansAndShowStructure() {
     ownedLists = extractTwitterLists(response).filter(list => list.type === 'suggest_owned_subscribed_list');
     updateLoading('正在为每个组合层匹配列表...', 82, 2);
     listPlans = buildListPlans(ownedLists);
+    await saveLists(agent, interest, Object.values(listPlans));
     step = 3;
   } catch (err) {
     error = `读取 X.com 列表失败：${(err as Error).message || err}`;
@@ -694,6 +699,7 @@ async function ensurePortfolioLists(): Promise<boolean> {
       listPlans[key] = { ...plan, mode: 'reuse', listId, created: true };
     }
     updateLoading('X.com 列表已准备完成，正在进入推荐生成...', 92, 2);
+    await saveLists(agent, interest, Object.values(listPlans));
     return true;
   } catch (err) {
     error = `准备 X.com 列表失败：${(err as Error).message || err}`;
@@ -737,6 +743,8 @@ async function generateRecommendedSources() {
     const layers = model.layers.map(layer => `${layer.name}: ${layer.description}`);
     const recommendation = await generateRecommendations(interest, selectedGoals, layers);
     model = normalizeModel({ ...model, ...recommendation });
+    await saveInterestField(agent, interest, model, selectedGoals);
+    await saveKols(agent, interest, model.sources);
     step = 4;
   } catch (err) {
     error = `生成推荐列表失败：${(err as Error).message || err}`;

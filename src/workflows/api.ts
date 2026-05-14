@@ -68,6 +68,9 @@ export interface WorkflowApis {
   twitter_following: (user?: string, limit?: number) => Promise<ExecutionResult>;
   twitter_list_add: (list_id: string, username: string) => Promise<ExecutionResult>;
   twitter_list_tweets: (list_id: string, limit?: number) => Promise<ExecutionResult>;
+  twitter_suggested: (limit?: number) => Promise<ExecutionResult>;
+  twitter_list_members: (list_id: string, limit?: number) => Promise<ExecutionResult>;
+  twitter_list_search: (query: string, limit?: number) => Promise<ExecutionResult>;
   weibo_group_set: (user_id: string, group_id: string, dryrun?: boolean) => Promise<ExecutionResult>;
   weibo_group_delete: (name: string, dryrun?: boolean) => Promise<ExecutionResult>;
   weibo_follow: (user_id: string) => Promise<ExecutionResult>;
@@ -579,6 +582,45 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/twitter-list-tweets', {
       method: 'POST',
       body: { list_id, limit },
+    });
+    return data;
+  },
+
+  /**
+   * Suggested
+   * Get suggested users to follow from Twitter/X
+   * @endpoint /v1/custom/twitter-suggested
+   */
+  async twitter_suggested(limit?: number): Promise<ExecutionResult> {
+    const { data } = await agent.call<ExecutionResult>('/v1/custom/twitter-suggested', {
+      method: 'POST',
+      body: { limit },
+    });
+    return data;
+  },
+
+  /**
+   * ListMembers
+   * Get members of a Twitter/X list
+   * @endpoint /v1/custom/twitter-list-members
+   */
+  async twitter_list_members(list_id: string, limit?: number): Promise<ExecutionResult> {
+    const { data } = await agent.call<ExecutionResult>('/v1/custom/twitter-list-members', {
+      method: 'POST',
+      body: { list_id, limit },
+    });
+    return data;
+  },
+
+  /**
+   * ListSearch
+   * Search for Twitter/X lists by name (direct GraphQL API call)
+   * @endpoint /v1/custom/twitter-list-search
+   */
+  async twitter_list_search(query: string, limit?: number): Promise<ExecutionResult> {
+    const { data } = await agent.call<ExecutionResult>('/v1/custom/twitter-list-search', {
+      method: 'POST',
+      body: { query, limit },
     });
     return data;
   },

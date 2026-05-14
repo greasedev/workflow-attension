@@ -31,6 +31,8 @@ import {
   capitalize,
   sleep,
   extractTwitterLists,
+  saveKols,
+  saveLists,
   type Portfolio,
   type TwitterList,
 } from '../shared';
@@ -51,6 +53,14 @@ export async function execute(context: WorkflowContext) {
   console.log("Interest:", interest);
 
   const result = await createXLists(apis, params, interest);
+  await saveLists(agent, interest, result.createdLists.map(list => ({
+    key: list.key,
+    name: list.name,
+    listId: list.listId,
+    mode: 'reused' in list.response ? 'reuse' : 'create',
+    created: !('reused' in list.response),
+  })));
+  await saveKols(agent, interest, result.addedSources);
 
   return {
     success: true,
@@ -67,6 +77,7 @@ async function createXLists(
   const portfolio = normalizePortfolio(params.portfolio);
   const createdLists: Array<{ key: string; name: string; response: ExecutionResult | { reused: true; list: TwitterList }; listId: string }> = [];
   const addedAccounts: Array<{ key: string; handle: string; response: ExecutionResult }> = [];
+  const addedSources: Array<Portfolio['core'][number]> = [];
   const skippedAccounts: Array<{ key: string; handle: string; reason: string }> = [];
 
   const listsResponse = await callWithLimit(() => apis.twitter_lists(100));
@@ -114,10 +125,11 @@ async function createXLists(
 
       const addResponse = await callWithLimit(() => apis.twitter_list_add(listId, username));
       addedAccounts.push({ key, handle: username, response: addResponse });
+      addedSources.push({ ...source, type: capitalize(key), handle: `@${username}` });
     }
   }
 
-  return { createdLists, addedAccounts, skippedAccounts };
+  return { createdLists, addedAccounts, addedSources, skippedAccounts };
 }
 
 let nextApiAt = 0;
