@@ -65,6 +65,21 @@ export type SearchTweet = {
   url?: string;
 };
 
+export type SavedTweet = {
+  id: string;
+  interestId?: string;
+  listIds?: string[];
+  listNames?: string[];
+  author?: string;
+  text?: string;
+  url?: string;
+  likes?: string;
+  views?: string;
+  createdAt?: string;
+  savedAt?: string;
+  raw?: unknown;
+};
+
 export type TwitterList = {
   id: string;
   name: string;

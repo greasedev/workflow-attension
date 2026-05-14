@@ -502,6 +502,9 @@ function reportView(): string {
       </div>
       <h3 style="margin:28px 0 14px">最终关注组合</h3>
       <div class="grid cols">${listKeys.map(finalList).join('')}</div>
+      <div class="row" style="justify-content:center;margin-top:24px">
+        <a class="ghost" href="./tweets.html">查看已保存 Tweets</a>
+      </div>
     </section>`;
 }
 

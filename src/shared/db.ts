@@ -1,5 +1,5 @@
 import type { Agent, Dexie } from '@greaseclaw/workflow-sdk';
-import type { PortfolioModel, Source, TwitterUserCandidate } from './types';
+import type { PortfolioModel, SavedTweet, SearchTweet, Source, TwitterUserCandidate } from './types';
 
 type DbAgent = Pick<Agent, 'getDb'>;
 
@@ -9,6 +9,11 @@ type ListRecordInput = {
   listId?: string;
   mode?: string;
   created?: boolean;
+};
+
+type TweetListInput = {
+  listId: string;
+  listName: string;
 };
 
 const dbSetup = new WeakMap<Dexie, Promise<Dexie>>();
@@ -132,12 +137,63 @@ export async function saveLists(agent: DbAgent, topic: string, lists: ListRecord
   })));
 }
 
+export async function saveTweets(
+  agent: DbAgent,
+  topic: string,
+  list: TweetListInput,
+  tweets: SearchTweet[],
+): Promise<number> {
+  if (!tweets.length) return 0;
+  const db = await getPortfolioDb(agent);
+  const table = db.table('tweets');
+  const interestId = interestIdFor(topic);
+  const savedAt = new Date().toISOString();
+  let saved = 0;
+
+  for (const tweet of tweets) {
+    if (!tweet.id) continue;
+    const existing = await table.get(tweet.id) as SavedTweet | undefined;
+    const listIds = unique([...(existing?.listIds || []), list.listId]);
+    const listNames = unique([...(existing?.listNames || []), list.listName]);
+    await table.put({
+      ...(existing || {}),
+      id: tweet.id,
+      interestId: existing?.interestId || interestId,
+      listIds,
+      listNames,
+      author: tweet.author || existing?.author || '',
+      text: tweet.text || existing?.text || '',
+      url: tweet.url || existing?.url || '',
+      likes: tweet.likes || existing?.likes || '',
+      views: tweet.views || existing?.views || '',
+      createdAt: tweet.created_at || existing?.createdAt || '',
+      savedAt,
+      raw: tweet,
+    });
+    saved += existing ? 0 : 1;
+  }
+
+  return saved;
+}
+
+export async function getSavedTweets(agent: DbAgent, limit = 200): Promise<SavedTweet[]> {
+  const db = await getPortfolioDb(agent);
+  const tweets = await db.table('tweets').orderBy('savedAt').reverse().limit(limit).toArray() as SavedTweet[];
+  return tweets;
+}
+
+export async function getSavedLists(agent: DbAgent): Promise<Array<ListRecordInput & { interestId?: string }>> {
+  const db = await getPortfolioDb(agent);
+  return await db.table('lists').toArray();
+}
+
 async function setupDb(db: Dexie): Promise<Dexie> {
   if ((db as { isOpen?: () => boolean }).isOpen?.()) db.close();
-  db.version(1).stores({
+  db.version(2).stores({
     interest_fields: '&id, topic, updatedAt',
     kols: '&id, interestId, handle, listKey, updatedAt',
     lists: '&id, interestId, listId, key, mode, updatedAt',
+    tweets: '&id, interestId, *listIds, author, createdAt, savedAt',
   });
   await db.open();
   return db;
@@ -145,4 +201,8 @@ async function setupDb(db: Dexie): Promise<Dexie> {
 
 function cleanHandle(value: string): string {
   return String(value || '').trim().replace(/^@/, '');
+}
+
+function unique<T>(values: T[]): T[] {
+  return [...new Set(values.filter(Boolean))];
 }
