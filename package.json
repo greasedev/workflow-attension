@@ -7,10 +7,12 @@
     "build:pages": "npx tsx node_modules/@greaseclaw/workflow-sdk/bin//page-build.mjs src/pages dist/pages",
     "dev": "npx tsx node_modules/@greaseclaw/workflow-sdk/bin/workflow-dev.mjs",
     "dev:pages": "npx tsx node_modules/@greaseclaw/workflow-sdk/bin//page-dev.mjs src/pages 3000",
+    "test:workflow:portfolio": "npx tsx node_modules/@greaseclaw/workflow-sdk/bin/workflow-dev.mjs src/workflows/generate_portfolio_workflow.ts '{\"task\":\"Generate portfolio\",\"params\":{\"interest\":\"AI Agent\"}}'",
+    "test:workflow:lists": "npx tsx node_modules/@greaseclaw/workflow-sdk/bin/workflow-dev.mjs src/workflows/create_x_lists_workflow.ts '{\"task\":\"Create lists\",\"params\":{\"interest\":\"AI Agent\",\"portfolio\":{\"core\":[{\"name\":\"OpenAI\",\"handle\":\"@OpenAI\"}],\"diversity\":[{\"name\":\"Yann LeCun\",\"handle\":\"@ylecun\"}],\"radar\":[{\"name\":\"Hugging Face\",\"handle\":\"@huggingface\"}]}}}'",
     "zip": "npm run build && npm run build:pages && rm -f workflows.zip && zip -r workflows.zip src/ dist package.json tsconfig.json"
   },
   "dependencies": {
-    "@greaseclaw/workflow-sdk": "github:greasedev/workflow-sdk#2b4d6adcb75899acbcceaa7a7843fe883080f140"
+    "@greaseclaw/workflow-sdk": "github:greasedev/workflow-sdk#b0a788000a8d32abedee7d25a304aaa82d38ccb3"
   },
   "devDependencies": {
     "@types/node": "^25.5.2",

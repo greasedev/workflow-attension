@@ -1,17 +1,13 @@
 // Shared utility functions
 
-import type { SearchTweet, Source } from './types';
+import type { ExecutionResult } from '../workflows/api';
+import type { SearchTweet, Source, TwitterList } from './types';
 
-export function profileExists(value: unknown): boolean {
-  if (!value || typeof value !== 'object') return false;
-  const data = value as {
-    success?: boolean;
-    error?: string;
-    task?: { extract_data?: unknown };
-  };
+export function profileExists(value: ExecutionResult): boolean {
+  if (!value) return false;
 
-  if (data.success === false || data.error) return false;
-  const extractData = data.task?.extract_data;
+  if (value.success === false || value.error) return false;
+  const extractData = value.task?.extract_data;
   if (!extractData) return true;
 
   // Check if extract_data is an array (list)
@@ -44,22 +40,20 @@ export function profileExists(value: unknown): boolean {
   return true;
 }
 
-export function extractListId(value: unknown): string {
-  if (!value || typeof value !== 'object') return '';
-  const data = value as {
-    list_id?: string;
-    id?: string;
-    data?: { list_id?: string; id?: string };
-    task?: { extract_data?: unknown };
-  };
+export function extractListId(value: ExecutionResult): string {
+  if (!value) return '';
 
-  if (data.list_id) return data.list_id;
-  if (data.id) return data.id;
-  if (data.data?.list_id) return data.data.list_id;
-  if (data.data?.id) return data.data.id;
-
-  const extractData = data.task?.extract_data;
+  const extractData = value.task?.extract_data;
   if (extractData) {
+    // If extract_data is an array, get the last element
+    if (Array.isArray(extractData)) {
+      const lastElement = extractData[extractData.length - 1];
+      if (lastElement && typeof lastElement === 'object') {
+        const obj = lastElement as { list_id?: string; id?: string; data?: { list_id?: string; id?: string } };
+        return obj.list_id || obj.id || obj.data?.list_id || obj.data?.id || '';
+      }
+      return '';
+    }
     if (typeof extractData === 'string') {
       if (extractData.trim().startsWith('{')) {
         try {
@@ -112,7 +106,7 @@ export function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-export function extractSearchTweets(value: unknown): SearchTweet[] {
+export function extractSearchTweets(value: ExecutionResult | unknown): SearchTweet[] {
   const raw = extractPayload(value);
   if (Array.isArray(raw)) return raw.filter(isSearchTweet);
   if (raw && typeof raw === 'object') {
@@ -120,6 +114,19 @@ export function extractSearchTweets(value: unknown): SearchTweet[] {
     for (const candidate of [obj.data, obj.tweets, obj.results, obj.task?.extract_data]) {
       const tweets = extractSearchTweets(candidate);
       if (tweets.length) return tweets;
+    }
+  }
+  return [];
+}
+
+export function extractTwitterLists(value: ExecutionResult | unknown): TwitterList[] {
+  const raw = extractPayload(value);
+  if (Array.isArray(raw)) return raw.map(normalizeTwitterList).filter(Boolean) as TwitterList[];
+  if (raw && typeof raw === 'object') {
+    const obj = raw as { data?: unknown; lists?: unknown; results?: unknown; task?: { extract_data?: unknown } };
+    for (const candidate of [obj.data, obj.lists, obj.results, obj.task?.extract_data]) {
+      const lists = extractTwitterLists(candidate);
+      if (lists.length) return lists;
     }
   }
   return [];
@@ -161,9 +168,65 @@ export function sourcesFromSearchTweets(tweets: SearchTweet[], limit = 18): Sour
     });
 }
 
-function extractPayload(value: unknown): unknown {
+export function mergeRecommendedSources(searchSources: Source[], aiSources: Source[], limit = 18, aiPerType = 2): Source[] {
+  const aiSelected: Source[] = [];
+  const aiSeen = new Set<string>();
+  const aiByType = new Map<string, number>();
+  for (const source of aiSources) {
+    const type = normalizeSourceType(source.type);
+    const count = aiByType.get(type) || 0;
+    if (count >= aiPerType) continue;
+    if (addUnique(aiSelected, aiSeen, { ...source, type }, Math.min(limit, aiPerType * 3))) {
+      aiByType.set(type, count + 1);
+    }
+  }
+
+  const result: Source[] = [];
+  const seen = new Set<string>();
+  for (const source of searchSources) {
+    addUnique(result, seen, source, Math.max(0, limit - aiSelected.length));
+  }
+  for (const source of aiSelected) {
+    addUnique(result, seen, source, limit);
+  }
+  for (const source of searchSources) {
+    addUnique(result, seen, source, limit);
+  }
+
+  return result;
+}
+
+function addUnique(result: Source[], seen: Set<string>, source: Source, limit: number): boolean {
+  if (result.length >= limit) return false;
+  const key = cleanHandle(source.handle || source.name || '').toLowerCase();
+  if (!key || seen.has(key)) return false;
+  seen.add(key);
+  result.push(source);
+  return true;
+}
+
+function normalizeSourceType(value: unknown): 'Core' | 'Diversity' | 'Radar' {
+  if (value === 'Core' || value === 'Diversity' || value === 'Radar') return value;
+  return 'Radar';
+}
+
+function normalizeTwitterList(value: unknown): TwitterList | null {
+  if (!value || typeof value !== 'object') return null;
+  const item = value as Partial<TwitterList>;
+  if (!item.id || !item.name) return null;
+  return {
+    id: String(item.id),
+    name: String(item.name),
+    members: Number.isFinite(Number(item.members)) ? Number(item.members) : undefined,
+    followers: Number.isFinite(Number(item.followers)) ? Number(item.followers) : undefined,
+    mode: item.mode ? String(item.mode) : undefined,
+    type: item.type ? String(item.type) : undefined,
+  };
+}
+
+function extractPayload(value: ExecutionResult | unknown): unknown {
   if (!value || typeof value !== 'object') return parseMaybeJson(value);
-  const obj = value as { task?: { extract_data?: unknown }; data?: unknown };
+  const obj = value as ExecutionResult & { data?: unknown };
   if (obj.task?.extract_data !== undefined) return parseMaybeJson(obj.task.extract_data);
   if (obj.data !== undefined) return parseMaybeJson(obj.data);
   return value;

@@ -4,7 +4,7 @@ import type { JsonSchema } from '@greaseclaw/workflow-sdk';
 
 export const portfolioSchema: JsonSchema = {
   type: 'object',
-  required: ['goals', 'distribution', 'layers', 'searchQueries'],
+  required: ['goals', 'distribution', 'layers'],
   properties: {
     goals: {
       type: 'array',
@@ -49,6 +49,22 @@ export const portfolioSchema: JsonSchema = {
         },
       },
     },
+  },
+};
+
+export function portfolioPrompt(topic: string): string {
+  return `Generate an attention portfolio structure for "${topic}".
+
+Do not generate recommended users or sources directly.
+Do not generate Twitter/X search queries yet.
+Return goals, distribution, and layers only.
+The user will choose goals first; search queries must be inferred later from the selected goals and confirmed portfolio structure.`;
+}
+
+export const searchQuerySchema: JsonSchema = {
+  type: 'object',
+  required: ['searchQueries'],
+  properties: {
     searchQueries: {
       type: 'array',
       minItems: 3,
@@ -58,11 +74,58 @@ export const portfolioSchema: JsonSchema = {
   },
 };
 
-export function portfolioPrompt(topic: string): string {
-  return `Generate an attention portfolio structure for "${topic}".
+export function searchQueryPrompt(topic: string, selectedGoals: string[], layers: string[]): string {
+  const goalsText = selectedGoals.length ? selectedGoals.join(', ') : 'general learning';
+  const layersText = layers.length ? layers.join(', ') : 'core, diversity, radar';
+  return `Generate Twitter/X search queries for an attention portfolio.
+
+Topic: ${topic}
+Selected user goals: ${goalsText}
+Confirmed portfolio layers: ${layersText}
 
 Do not generate recommended users or sources directly.
-Return goals, distribution, layers, and searchQueries only.
-searchQueries should be Twitter/X search queries that can discover active people, projects, companies, newsletters, and critical viewpoints for the topic.
-Include a mix of technical, product, business, safety/criticism, and regional query angles.`;
+Return searchQueries only.
+Queries should discover active people, projects, companies, newsletters, and critical viewpoints.
+Include a mix of technical, product, business, safety/criticism, and regional angles that match the selected goals.`;
+}
+
+export const aiSourceSchema: JsonSchema = {
+  type: 'object',
+  required: ['sources'],
+  properties: {
+    sources: {
+      type: 'array',
+      minItems: 3,
+      maxItems: 6,
+      items: {
+        type: 'object',
+        required: ['name', 'handle', 'type', 'role', 'content', 'stance', 'lang', 'reason'],
+        properties: {
+          name: { type: 'string' },
+          handle: { type: 'string' },
+          type: { type: 'string', enum: ['Core', 'Diversity', 'Radar'] },
+          role: { type: 'string' },
+          content: { type: 'string' },
+          stance: { type: 'string' },
+          lang: { type: 'string' },
+          reason: { type: 'string' },
+        },
+      },
+    },
+  },
+};
+
+export function aiSourcePrompt(topic: string, selectedGoals: string[], layers: string[]): string {
+  const goalsText = selectedGoals.length ? selectedGoals.join(', ') : 'general learning';
+  const layersText = layers.length ? layers.join(', ') : 'Core, Diversity, Radar';
+  return `Suggest a small number of Twitter/X accounts as AI seed sources for an attention portfolio.
+
+Topic: ${topic}
+Selected user goals: ${goalsText}
+Confirmed portfolio layers: ${layersText}
+
+Return sources only.
+Generate 1-2 accounts for each type: Core, Diversity, and Radar.
+Only include widely known or highly likely real Twitter/X accounts. Do not invent handles.
+Search API results will remain the main source of recommendations; these AI seed accounts are only a small supplement.`;
 }

@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@greaseclaw/workflow-sdk':
-        specifier: github:greasedev/workflow-sdk#2b4d6adcb75899acbcceaa7a7843fe883080f140
-        version: https://codeload.github.com/greasedev/workflow-sdk/tar.gz/2b4d6adcb75899acbcceaa7a7843fe883080f140(ws@8.20.1)(zod@3.25.76)
+        specifier: github:greasedev/workflow-sdk#b0a788000a8d32abedee7d25a304aaa82d38ccb3
+        version: https://codeload.github.com/greasedev/workflow-sdk/tar.gz/b0a788000a8d32abedee7d25a304aaa82d38ccb3(ws@8.20.1)(zod@3.25.76)
     devDependencies:
       '@types/node':
         specifier: ^25.5.2
@@ -363,9 +363,9 @@ packages:
       '@modelcontextprotocol/sdk':
         optional: true
 
-  '@greaseclaw/workflow-sdk@https://codeload.github.com/greasedev/workflow-sdk/tar.gz/2b4d6adcb75899acbcceaa7a7843fe883080f140':
-    resolution: {tarball: https://codeload.github.com/greasedev/workflow-sdk/tar.gz/2b4d6adcb75899acbcceaa7a7843fe883080f140}
-    version: 0.0.2
+  '@greaseclaw/workflow-sdk@https://codeload.github.com/greasedev/workflow-sdk/tar.gz/b0a788000a8d32abedee7d25a304aaa82d38ccb3':
+    resolution: {tarball: https://codeload.github.com/greasedev/workflow-sdk/tar.gz/b0a788000a8d32abedee7d25a304aaa82d38ccb3}
+    version: 0.0.3
     hasBin: true
     peerDependencies:
       zod: ^3.x
@@ -1749,7 +1749,7 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@greaseclaw/workflow-sdk@https://codeload.github.com/greasedev/workflow-sdk/tar.gz/2b4d6adcb75899acbcceaa7a7843fe883080f140(ws@8.20.1)(zod@3.25.76)':
+  '@greaseclaw/workflow-sdk@https://codeload.github.com/greasedev/workflow-sdk/tar.gz/b0a788000a8d32abedee7d25a304aaa82d38ccb3(ws@8.20.1)(zod@3.25.76)':
     dependencies:
       '@mariozechner/pi-agent-core': 0.53.0(ws@8.20.1)(zod@3.25.76)
       '@mariozechner/pi-ai': 0.53.0(ws@8.20.1)(zod@3.25.76)

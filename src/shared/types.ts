@@ -63,3 +63,12 @@ export type SearchTweet = {
   views?: string;
   url?: string;
 };
+
+export type TwitterList = {
+  id: string;
+  name: string;
+  members?: number;
+  followers?: number;
+  mode?: string;
+  type?: string;
+};
