@@ -12,7 +12,9 @@
       "Bash(npx tsx *)",
       "Bash(curl -sL https://codeload.github.com/greasedev/workflow-sdk/tar.gz/0c05ce1e52440de979434c1339429725d3c80277)",
       "Bash(tar -tzf -)",
-      "Bash(tar -xzf - -O workflow-sdk-0c05ce1e52440de979434c1339429725d3c80277/dist/methods/local/complete.js)"
+      "Bash(tar -xzf - -O workflow-sdk-0c05ce1e52440de979434c1339429725d3c80277/dist/methods/local/complete.js)",
+      "Bash(pnpm run *)",
+      "mcp__ide__getDiagnostics"
     ]
   }
 }

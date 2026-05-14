@@ -1,32 +1,82 @@
 import { Agent } from '@greaseclaw/workflow-sdk';
+import {
+  profileExists,
+  extractListId,
+  cleanHandle,
+  capitalize,
+  parseJson,
+  clampNumber,
+  unique,
+  sleep,
+  extractSearchTweets,
+  sourcesFromSearchTweets,
+  initials,
+  escapeHtml,
+  escapeAttr,
+  portfolioSchema,
+  portfolioPrompt,
+  type Source,
+  type Goal,
+  type DistributionItem,
+  type Layer,
+  type PortfolioModel,
+} from '../shared';
 
-const app = document.querySelector('#app');
-const $ = (selector, root = document) => root.querySelector(selector);
-const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+const app = document.querySelector('#app') as HTMLElement;
+const $ = <T extends HTMLElement>(selector: string, root: Document | HTMLElement = document): T | null =>
+  root.querySelector<T>(selector);
+const $$ = <T extends HTMLElement>(selector: string, root: Document | HTMLElement = document): T[] =>
+  [...root.querySelectorAll<T>(selector)];
+
+declare global {
+  interface Window {
+    agentOptions?: Record<string, unknown>;
+  }
+}
 
 const agent = new Agent(window.agentOptions || {});
-const apiBaseUrl = process.env.CDP_BASE_URL || 'http://localhost:9222/json/api';
-const listKeys = ['core', 'diversity', 'radar'];
+const apiBaseUrl = (import.meta as { env: { CDP_BASE_URL?: string } }).env?.CDP_BASE_URL || 'http://localhost:9222/json/api';
+const listKeys: ('core' | 'diversity' | 'radar')[] = ['core', 'diversity', 'radar'];
+const apiIntervalMs = 900;
 
 let step = 1;
 let interest = '';
 let error = '';
 let loading = false;
 let model = emptyModel();
-let pickedGoals = [];
-let picked = emptyPicked();
+let pickedGoals: string[] = [];
+let picked: Record<string, Source[]> = emptyPicked();
 let filters = { type: '全部', stance: '', lang: '' };
+let nextApiAt = 0;
 
-function emptyModel() {
-  return {
-    goals: [],
-    distribution: [],
-    layers: [],
-    sources: [],
-  };
+interface NormalizedSource extends Source {
+  id: string;
+  name: string;
+  handle: string;
+  avatar: string;
+  type: string;
+  role: string;
+  content: string;
+  stance: string;
+  lang: string;
+  focus: number;
+  diversity: number;
+  reason: string;
+  state: 'new' | 'add' | 'ignore';
 }
 
-function emptyPicked() {
+interface NormalizedModel {
+  goals: Goal[];
+  distribution: DistributionItem[];
+  layers: Layer[];
+  sources: NormalizedSource[];
+}
+
+function emptyModel(): NormalizedModel {
+  return { goals: [], distribution: [], layers: [], sources: [] };
+}
+
+function emptyPicked(): Record<string, Source[]> {
   return { core: [], diversity: [], radar: [] };
 }
 
@@ -44,7 +94,7 @@ function render() {
   bindEvents();
 }
 
-const views = {
+const views: Record<number, () => string> = {
   1: landingView,
   2: goalsView,
   3: portfolioView,
@@ -52,7 +102,7 @@ const views = {
   5: reportView,
 };
 
-function landingView() {
+function landingView(): string {
   return `
     <section class="view hero">
       <h1>Build a focused<br><span class="gold">attention portfolio</span></h1>
@@ -66,7 +116,7 @@ function landingView() {
     </section>`;
 }
 
-function loadingView() {
+function loadingView(): string {
   return `
     <section class="view hero">
       <h2>Agent 正在生成</h2>
@@ -75,7 +125,7 @@ function loadingView() {
     </section>`;
 }
 
-function goalsView() {
+function goalsView(): string {
   return `
     <section class="view">
       ${nav('返回', '生成关注组合', pickedGoals.length === 0)}
@@ -86,7 +136,7 @@ function goalsView() {
     </section>`;
 }
 
-function goalCard(goal) {
+function goalCard(goal: Goal): string {
   const selected = pickedGoals.includes(goal.id);
   return `
     <button class="card select ${selected ? 'on' : ''}" data-goal="${escapeAttr(goal.id)}">
@@ -98,7 +148,7 @@ function goalCard(goal) {
     </button>`;
 }
 
-function goalSummary() {
+function goalSummary(): string {
   return `
     <div class="summary">
       <span class="tiny">当前目标</span>
@@ -106,7 +156,7 @@ function goalSummary() {
     </div>`;
 }
 
-function portfolioView() {
+function portfolioView(): string {
   return `
     <section class="view">
       ${nav('返回', '查看推荐来源')}
@@ -121,7 +171,7 @@ function portfolioView() {
     </section>`;
 }
 
-function distributionRow(item) {
+function distributionRow(item: DistributionItem): string {
   return `
     <div class="barrow">
       <span class="tiny">${escapeHtml(item.label)}</span>
@@ -130,7 +180,7 @@ function distributionRow(item) {
     </div>`;
 }
 
-function layerCard(layer) {
+function layerCard(layer: Layer): string {
   return `
     <div class="card">
       <h3>${escapeHtml(layer.name)}</h3>
@@ -141,7 +191,7 @@ function layerCard(layer) {
     </div>`;
 }
 
-function sourcesView() {
+function sourcesView(): string {
   const visibleSources = model.sources.filter(source =>
     source.state !== 'ignore'
     && (filters.type === '全部' || source.type === filters.type)
@@ -171,7 +221,14 @@ function sourcesView() {
     </section>`;
 }
 
-function healthCards(stats) {
+interface HealthStats {
+  focus: number;
+  diversity: number;
+  redundancy: string;
+  cocoon: string;
+}
+
+function healthCards(stats: HealthStats): string {
   return [
     ['聚焦度', stats.focus],
     ['多元度', stats.diversity],
@@ -180,7 +237,7 @@ function healthCards(stats) {
   ].map(item => `<div class="card"><p class="tiny">${item[0]}</p><div class="score">${item[1]}</div></div>`).join('');
 }
 
-function filtersView() {
+function filtersView(): string {
   return `
     <h3>筛选器</h3>
     ${['全部', ...unique(model.sources.map(source => source.type))].map(value => filterButton('filter', value, filters.type === value)).join('')}
@@ -191,12 +248,12 @@ function filtersView() {
     <button class="ghost" id="clear" style="margin-top:16px">清除筛选</button>`;
 }
 
-function filterButton(kind, value, active) {
+function filterButton(kind: string, value: string, active: boolean): string {
   const cls = kind === 'filter' ? 'filter chip' : 'chip';
   return `<button class="${cls} ${active ? 'on' : ''}" data-${kind}="${escapeAttr(value)}">${escapeHtml(value)}</button>`;
 }
 
-function sourceCard(source) {
+function sourceCard(source: NormalizedSource): string {
   const type = source.type.toLowerCase();
   const metadata = [source.role, source.content, source.stance, source.lang].filter(Boolean);
   const actions = source.state === 'add'
@@ -219,7 +276,7 @@ function sourceCard(source) {
     </article>`;
 }
 
-function listBlock(key) {
+function listBlock(key: string): string {
   const items = picked[key];
   const layer = model.layers.find(item => item.key === key);
   const required = layer?.suggested || '动态';
@@ -238,7 +295,7 @@ function listBlock(key) {
     </div>`;
 }
 
-function reportView() {
+function reportView(): string {
   const stats = health();
   const total = Math.round((stats.focus + stats.diversity + quality() + novelty()) / 4);
   const summary = total >= 80
@@ -265,11 +322,11 @@ function reportView() {
     </section>`;
 }
 
-function analysisCard(title, items) {
+function analysisCard(title: string, items: string[]): string {
   return `<div class="card"><h3>${title}</h3><ul>${items.map(item => `<li class="muted">${escapeHtml(item)}</li>`).join('')}</ul></div>`;
 }
 
-function finalList(key) {
+function finalList(key: string): string {
   const items = picked[key];
   const layer = model.layers.find(item => item.key === key);
   const body = items.length
@@ -279,7 +336,7 @@ function finalList(key) {
   return `<div class="card"><h3>${escapeHtml(layer?.name || capitalize(key))} (${items.length})</h3>${body}</div>`;
 }
 
-function nav(back, next, disabled = false, id = 'next') {
+function nav(back: string, next: string, disabled = false, id = 'next'): string {
   return `
     <div class="nav">
       <button class="ghost" id="back">${back}</button>
@@ -293,7 +350,7 @@ function bindEvents() {
     if (event.key === 'Enter') start();
   });
 
-  $$('[data-goal]').forEach(button => button.addEventListener('click', () => toggleGoal(button.dataset.goal)));
+  $$('[data-goal]').forEach(button => button.addEventListener('click', () => toggleGoal(button.dataset.goal!)));
   $('#back')?.addEventListener('click', () => {
     step = Math.max(1, step - 1);
     render();
@@ -301,13 +358,13 @@ function bindEvents() {
   $('#next')?.addEventListener('click', () => { step = Math.min(5, step + 1); render(); });
   $('#xgo')?.addEventListener('click', autoCreate);
 
-  $$('[data-filter]').forEach(button => button.addEventListener('click', () => { filters.type = button.dataset.filter; render(); }));
+  $$('[data-filter]').forEach(button => button.addEventListener('click', () => { filters.type = button.dataset.filter!; render(); }));
   $$('[data-stance]').forEach(button => button.addEventListener('click', () => {
-    filters.stance = filters.stance === button.dataset.stance ? '' : button.dataset.stance;
+    filters.stance = filters.stance === button.dataset.stance ? '' : button.dataset.stance!;
     render();
   }));
   $$('[data-lang]').forEach(button => button.addEventListener('click', () => {
-    filters.lang = filters.lang === button.dataset.lang ? '' : button.dataset.lang;
+    filters.lang = filters.lang === button.dataset.lang ? '' : button.dataset.lang!;
     render();
   }));
 
@@ -323,13 +380,15 @@ function bindEvents() {
     if (source) source.state = 'ignore';
     render();
   }));
-  $$('[data-remove]').forEach(button => button.addEventListener('click', () => removeSource(button.dataset.remove)));
+  $$('[data-remove]').forEach(button => button.addEventListener('click', () => removeSource(button.dataset.remove!)));
 }
 
 async function start() {
-  const value = $('#interest').value.trim();
+  const input = $('#interest') as HTMLInputElement | null;
+  const value = input?.value.trim();
   if (!value) {
-    $('#err').textContent = '请先输入一个感兴趣的领域';
+    const errEl = $('#err');
+    if (errEl) errEl.textContent = '请先输入一个感兴趣的领域';
     return;
   }
 
@@ -345,7 +404,7 @@ async function start() {
     filters = { type: '全部', stance: '', lang: '' };
     step = 2;
   } catch (err) {
-    error = `生成失败：${err.message || err}`;
+    error = `生成失败：${(err as Error).message || err}`;
     step = 1;
   } finally {
     loading = false;
@@ -353,97 +412,38 @@ async function start() {
   }
 }
 
-const portfolioSchema = {
-  type: 'object',
-  required: ['goals', 'distribution', 'layers', 'sources'],
-  properties: {
-    goals: {
-      type: 'array',
-      minItems: 4,
-      maxItems: 6,
-      items: {
-        type: 'object',
-        required: ['id', 'title', 'titleEn', 'description', 'tags', 'icon'],
-        properties: {
-          id: { type: 'string' },
-          title: { type: 'string' },
-          titleEn: { type: 'string' },
-          description: { type: 'string' },
-          tags: { type: 'array', items: { type: 'string' } },
-          icon: { type: 'string' },
-        },
-      },
-    },
-    distribution: {
-      type: 'array',
-      items: {
-        type: 'object',
-        required: ['label', 'value'],
-        properties: {
-          label: { type: 'string' },
-          value: { type: 'number' },
-        },
-      },
-    },
-    layers: {
-      type: 'array',
-      items: {
-        type: 'object',
-        required: ['key', 'name', 'nameCn', 'description', 'tags', 'suggested'],
-        properties: {
-          key: { type: 'string', enum: ['core', 'diversity', 'radar'] },
-          name: { type: 'string' },
-          nameCn: { type: 'string' },
-          description: { type: 'string' },
-          tags: { type: 'array', items: { type: 'string' } },
-          suggested: { type: 'string' },
-        },
-      },
-    },
-    sources: {
-      type: 'array',
-      minItems: 12,
-      maxItems: 18,
-      items: {
-        type: 'object',
-        required: ['id', 'name', 'handle', 'avatar', 'type', 'role', 'content', 'stance', 'lang', 'focus', 'diversity', 'reason'],
-        properties: {
-          id: { type: 'string' },
-          name: { type: 'string' },
-          handle: { type: 'string' },
-          avatar: { type: 'string' },
-          type: { type: 'string', enum: ['Core', 'Diversity', 'Radar'] },
-          role: { type: 'string' },
-          content: { type: 'string' },
-          stance: { type: 'string' },
-          lang: { type: 'string' },
-          focus: { type: 'number' },
-          diversity: { type: 'number' },
-          reason: { type: 'string' },
-        },
-      },
-    },
-  },
-};
-
-async function generatePortfolio(topic) {
+async function generatePortfolio(topic: string): Promise<unknown> {
   const result = await agent.complete(portfolioPrompt(topic), {
     system: 'You generate concise valid JSON matching the provided schema.',
     jsonSchema: portfolioSchema,
   });
-  return result.json || parseJson(result.text || '');
+  const structure = (result.json || parseJson(result.text || '')) as Partial<PortfolioModel>;
+  const searchQueries = Array.isArray(structure.searchQueries) && structure.searchQueries.length
+    ? structure.searchQueries
+    : [topic];
+  const tweets = [];
+
+  for (const query of searchQueries.slice(0, 6)) {
+    const response = await workflowApiCall('/v1/custom/twitter-search', {
+      method: 'POST',
+      body: { query, limit: 20 },
+    });
+    tweets.push(...extractSearchTweets(response));
+  }
+
+  return {
+    ...structure,
+    sources: sourcesFromSearchTweets(tweets, 18),
+  };
 }
 
-function portfolioPrompt(topic) {
-  return `Generate an attention portfolio for "${topic}". Use real accounts/projects/publications when known.`;
-}
-
-function normalizeModel(value) {
+function normalizeModel(value: unknown): NormalizedModel {
+  const data = value && typeof value === 'object' ? value as Partial<PortfolioModel> : {};
   const normalized = {
-    goals: Array.isArray(value.goals) ? value.goals.slice(0, 6) : [],
-    distribution: Array.isArray(value.distribution) ? value.distribution : [],
-    layers: normalizeLayers(value.layers),
-    sources: Array.isArray(value.sources) ? value.sources.map(normalizeSource) : [],
+    goals: Array.isArray(data.goals) ? data.goals.slice(0, 6) : [],
+    distribution: Array.isArray(data.distribution) ? data.distribution : [],
+    layers: normalizeLayers(data.layers),
+    sources: Array.isArray(data.sources) ? data.sources.map(normalizeSource) : [],
   };
 
   if (!normalized.goals.length) throw new Error('Agent 没有返回 goals');
@@ -451,41 +451,42 @@ function normalizeModel(value) {
   return normalized;
 }
 
-function normalizeLayers(layers) {
+function normalizeLayers(layers: unknown): Layer[] {
   const input = Array.isArray(layers) ? layers : [];
   return listKeys.map(key => {
-    const layer = input.find(item => item?.key === key) || {};
+    const layer = input.find(item => item && typeof item === 'object' && (item as Layer).key === key) as Layer | undefined;
     return {
       key,
-      name: layer.name || capitalize(key),
-      nameCn: layer.nameCn || key,
-      description: layer.description || '',
-      tags: Array.isArray(layer.tags) ? layer.tags : [],
-      suggested: layer.suggested || '动态',
+      name: layer?.name || capitalize(key),
+      nameCn: layer?.nameCn || key,
+      description: layer?.description || '',
+      tags: Array.isArray(layer?.tags) ? layer.tags : [],
+      suggested: layer?.suggested || '动态',
     };
   });
 }
 
-function normalizeSource(source, index) {
-  const type = listKeys.map(capitalize).includes(source?.type) ? source.type : 'Radar';
+function normalizeSource(source: unknown, index: number): NormalizedSource {
+  const s = source && typeof source === 'object' ? source as Partial<Source> : {};
+  const type = listKeys.map(capitalize).includes(s?.type) ? s.type! : 'Radar';
   return {
-    id: String(source?.id || `source-${index}`),
-    name: String(source?.name || 'Unknown source'),
-    handle: String(source?.handle || ''),
-    avatar: String(source?.avatar || initials(source?.name || 'S')).slice(0, 3),
+    id: String(s?.id || `source-${index}`),
+    name: String(s?.name || 'Unknown source'),
+    handle: String(s?.handle || ''),
+    avatar: String(s?.avatar || initials(s?.name || 'S')).slice(0, 3),
     type,
-    role: String(source?.role || ''),
-    content: String(source?.content || ''),
-    stance: String(source?.stance || ''),
-    lang: String(source?.lang || ''),
-    focus: clampNumber(source?.focus, 0, 100),
-    diversity: clampNumber(source?.diversity, 0, 100),
-    reason: String(source?.reason || ''),
+    role: String(s?.role || ''),
+    content: String(s?.content || ''),
+    stance: String(s?.stance || ''),
+    lang: String(s?.lang || ''),
+    focus: clampNumber(s?.focus, 0, 100),
+    diversity: clampNumber(s?.diversity, 0, 100),
+    reason: String(s?.reason || ''),
     state: 'new',
   };
 }
 
-function toggleGoal(id) {
+function toggleGoal(id: string) {
   if (pickedGoals.includes(id)) {
     pickedGoals = pickedGoals.filter(goal => goal !== id);
   } else if (pickedGoals.length < 3) {
@@ -494,7 +495,7 @@ function toggleGoal(id) {
   render();
 }
 
-function addSource(source) {
+function addSource(source: NormalizedSource) {
   const key = source.type.toLowerCase();
   if (!picked[key].some(item => item.id === source.id)) {
     picked[key].push(source);
@@ -502,9 +503,9 @@ function addSource(source) {
   }
 }
 
-function removeSource(value) {
+function removeSource(value: string) {
   const [key, index] = value.split(':');
-  const source = picked[key].splice(index, 1)[0];
+  const source = picked[key].splice(Number(index), 1)[0];
   if (source) source.state = 'new';
   render();
 }
@@ -525,31 +526,36 @@ async function autoCreate() {
       </section>
     </div>`);
 
-  $('#closeAuto').addEventListener('click', () => $('.modal').remove());
+  $('#closeAuto')?.addEventListener('click', () => {
+    const modal = $('.modal');
+    if (modal) modal.remove();
+  });
 
   const logs = $('#logs');
-  const bar = $('#autoBar');
+  const bar = $('#autoBar') as HTMLElement | null;
   const selectedLists = listKeys.filter(key => picked[key].length);
-  const totalSteps = Math.max(1, selectedLists.length + allSources.length);
+  const totalSteps = Math.max(1, selectedLists.length + allSources.length * 2);
   let done = 0;
-  const log = (message, status = 'ok') => {
-    logs.insertAdjacentHTML('beforeend', `<p class="${status}">${escapeHtml(message)}</p>`);
-    logs.scrollTop = 9999;
+  const log = (message: string, status = 'ok') => {
+    if (logs) {
+      logs.insertAdjacentHTML('beforeend', `<p class="${status}">${escapeHtml(message)}</p>`);
+      logs.scrollTop = 9999;
+    }
   };
   const advance = () => {
     done += 1;
-    bar.style.width = `${Math.min(100, Math.round(done / totalSteps * 100))}%`;
+    if (bar) bar.style.width = `${Math.min(100, Math.round(done / totalSteps * 100))}%`;
   };
 
   if (!allSources.length) {
     log('请先添加至少一个关注源。', 'err');
-    bar.style.width = '100%';
+    if (bar) bar.style.width = '100%';
     return;
   }
 
   try {
     log('初始化 workflow SDK page bridge');
-    const createdLists = {};
+    const createdLists: Record<string, string> = {};
 
     for (const key of selectedLists) {
       const listName = `${interest} - ${capitalize(key)}`;
@@ -576,28 +582,55 @@ async function autoCreate() {
         continue;
       }
 
-      log(`添加 ${source.handle || source.name} 到 ${source.type} List`);
+      const username = cleanHandle(source.handle || source.name);
+      if (!username) {
+        log(`跳过 ${source.name}：缺少用户名`, 'warn');
+        advance();
+        continue;
+      }
+
+      log(`检查用户是否存在：@${username}`);
+      const profile = await workflowApiCall('/v1/custom/twitter-profile', {
+        method: 'POST',
+        body: { username },
+      });
+      advance();
+
+      if (!profileExists(profile)) {
+        log(`跳过 @${username}：用户不存在或无法读取 profile`, 'warn');
+        advance();
+        continue;
+      }
+
+      log(`添加 @${username} 到 ${source.type} List`);
       await workflowApiCall('/v1/custom/twitter-list-add', {
         method: 'POST',
         body: {
           list_id: listId,
-          username: (source.handle || source.name).replace(/^@/, ''),
+          username,
         },
       });
-      log(`已提交添加请求：${source.handle || source.name}`);
+      log(`已提交添加请求：@${username}`);
       advance();
     }
 
-    bar.style.width = '100%';
+    if (bar) bar.style.width = '100%';
     log('完成：workflow SDK API 调用流程结束');
   } catch (err) {
-    bar.style.width = '100%';
-    log(`调用失败：${err.message || err}`, 'err');
+    if (bar) bar.style.width = '100%';
+    log(`调用失败：${(err as Error).message || err}`, 'err');
     log('请确认 X.com API/Chrome DevTools 代理已启动，或在 workflow 运行环境中执行。', 'warn');
   }
 }
 
-async function workflowApiCall(endpoint, options = {}) {
+interface WorkflowApiOptions {
+  method?: string;
+  headers?: Record<string, string>;
+  body?: unknown;
+}
+
+async function workflowApiCall(endpoint: string, options: WorkflowApiOptions = {}): Promise<unknown> {
+  await throttleApi();
   const url = `${apiBaseUrl}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
   const response = await fetch(url, {
     method: options.method || 'GET',
@@ -607,29 +640,19 @@ async function workflowApiCall(endpoint, options = {}) {
   const contentType = response.headers.get('content-type') || '';
   const data = contentType.includes('application/json') ? await response.json() : await response.text();
   if (!response.ok) {
-    throw new Error(typeof data === 'object' && data?.message ? data.message : `Request failed: ${response.status}`);
+    throw new Error(typeof data === 'object' && (data as { message?: string }).message ? (data as { message: string }).message : `Request failed: ${response.status}`);
   }
   return data;
 }
 
-function extractListId(data) {
-  const candidates = [data?.list_id, data?.id, data?.data?.list_id, data?.data?.id, data?.task?.extract_data];
-  for (const candidate of candidates) {
-    if (!candidate) continue;
-    if (typeof candidate === 'string' && candidate.trim().startsWith('{')) {
-      try {
-        const parsed = JSON.parse(candidate);
-        return parsed.list_id || parsed.id || parsed.data?.list_id || parsed.data?.id || '';
-      } catch {
-        return candidate;
-      }
-    }
-    return String(candidate);
-  }
-  return '';
+async function throttleApi(): Promise<void> {
+  const now = Date.now();
+  const waitMs = Math.max(0, nextApiAt - now);
+  nextApiAt = Math.max(now, nextApiAt) + apiIntervalMs;
+  if (waitMs > 0) await sleep(waitMs);
 }
 
-function health() {
+function health(): HealthStats {
   const core = picked.core.length;
   const diversity = picked.diversity.length;
   const total = listKeys.reduce((sum, key) => sum + picked[key].length, 0);
@@ -641,83 +664,42 @@ function health() {
   };
 }
 
-function quality() {
+function quality(): number {
   const selected = listKeys.flatMap(key => picked[key]);
   if (!selected.length) return 50;
-  return Math.round(selected.reduce((sum, source) => sum + source.focus, 0) / selected.length);
+  return Math.round(selected.reduce((sum, source) => sum + (source.focus || 0), 0) / selected.length);
 }
 
-function novelty() {
+function novelty(): number {
   return Math.min(100, 50 + picked.radar.length * 8);
 }
 
-function advantages() {
-  const items = [];
+function advantages(): string[] {
+  const items: string[] = [];
   if (picked.core.length > 2) items.push('Core List 已有稳定高质量来源');
   if (picked.diversity.length > 1) items.push('已开始补充多元视角');
   if (picked.radar.length > 1) items.push('Radar List 可帮助发现新趋势');
   return items.length ? items : ['尚未添加来源，建议先关注推荐列表'];
 }
 
-function risks() {
-  const items = [];
+function risks(): string[] {
+  const items: string[] = [];
   if (picked.diversity.length < 3) items.push('批判性观点和落地案例偏少');
-  if (!picked.diversity.some(source => /中文|Chinese|China/i.test(source.lang))) items.push('非英语来源覆盖偏低');
+  if (!picked.diversity.some(source => /中文|Chinese|China/i.test(source.lang || ''))) items.push('非英语来源覆盖偏低');
   if (!picked.radar.length) items.push('缺少新趋势观察');
   return items;
 }
 
-function tips() {
-  const items = [];
+function tips(): string[] {
+  const items: string[] = [];
   if (picked.diversity.length < 5) items.push(`增加 ${5 - picked.diversity.length} 个多元视角来源`);
   if (picked.core.length < 6) items.push(`增加 ${6 - picked.core.length} 个核心关注来源`);
   if (picked.radar.length) items.push('每 30 天复查 Radar List');
   return items;
 }
 
-function parseJson(text) {
-  const trimmed = text.trim();
-  const withoutFence = trimmed.replace(/^```(?:json)?/i, '').replace(/```$/i, '').trim();
-  const start = withoutFence.indexOf('{');
-  const end = withoutFence.lastIndexOf('}');
-  if (start < 0 || end < start) throw new Error('Agent 返回的内容不是 JSON');
-  return JSON.parse(withoutFence.slice(start, end + 1));
-}
-
-function tag(value) {
+function tag(value: string): string {
   return `<span class="pill">${escapeHtml(value)}</span>`;
-}
-
-function unique(values) {
-  return [...new Set(values.filter(Boolean))];
-}
-
-function initials(value) {
-  return String(value || 'S').split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase();
-}
-
-function capitalize(value) {
-  return value.charAt(0).toUpperCase() + value.slice(1);
-}
-
-function clampNumber(value, min, max) {
-  const number = Number(value);
-  if (!Number.isFinite(number)) return min;
-  return Math.min(max, Math.max(min, Math.round(number)));
-}
-
-function escapeAttr(value) {
-  return escapeHtml(value).replace(/`/g, '&#96;');
-}
-
-function escapeHtml(value) {
-  return String(value).replace(/[&<>"']/g, char => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;',
-  })[char]);
 }
 
 render();

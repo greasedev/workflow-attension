@@ -20,26 +20,17 @@
 
 import { Agent, type WorkflowContext } from '@greaseclaw/workflow-sdk';
 import { createWorkflowApis } from './api';
-
-type Source = {
-  name?: string;
-  handle?: string;
-  type?: string;
-  portfolioType?: string;
-};
-
-type Portfolio = {
-  core?: Source[];
-  diversity?: Source[];
-  radar?: Source[];
-};
-
-type PortfolioModel = {
-  goals: unknown[];
-  distribution: unknown[];
-  layers: unknown[];
-  sources: unknown[];
-};
+import {
+  profileExists,
+  extractListId,
+  cleanHandle,
+  capitalize,
+  parseJson,
+  portfolioSchema,
+  portfolioPrompt,
+  type Portfolio,
+  type PortfolioModel,
+} from '../shared';
 
 // Main workflow entry point
 export async function execute(context: WorkflowContext) {
@@ -115,6 +106,12 @@ async function createXLists(apis: ReturnType<typeof createWorkflowApis>, params:
         continue;
       }
 
+      const profile = await apis.twitter_profile(username);
+      if (!profileExists(profile)) {
+        skippedAccounts.push({ key, handle: username, reason: 'twitter_profile did not find user' });
+        continue;
+      }
+
       const addResponse = await apis.twitter_list_add(listId, username);
       addedAccounts.push({ key, handle: username, response: addResponse });
     }
@@ -122,79 +119,6 @@ async function createXLists(apis: ReturnType<typeof createWorkflowApis>, params:
 
   return { createdLists, addedAccounts, skippedAccounts };
 }
-
-const portfolioSchema = {
-  type: 'object',
-  required: ['goals', 'distribution', 'layers', 'sources'],
-  properties: {
-    goals: {
-      type: 'array',
-      minItems: 4,
-      maxItems: 6,
-      items: {
-        type: 'object',
-        required: ['id', 'title', 'titleEn', 'description', 'tags', 'icon'],
-        properties: {
-          id: { type: 'string' },
-          title: { type: 'string' },
-          titleEn: { type: 'string' },
-          description: { type: 'string' },
-          tags: { type: 'array', items: { type: 'string' } },
-          icon: { type: 'string' },
-        },
-      },
-    },
-    distribution: {
-      type: 'array',
-      items: {
-        type: 'object',
-        required: ['label', 'value'],
-        properties: {
-          label: { type: 'string' },
-          value: { type: 'number' },
-        },
-      },
-    },
-    layers: {
-      type: 'array',
-      items: {
-        type: 'object',
-        required: ['key', 'name', 'nameCn', 'description', 'tags', 'suggested'],
-        properties: {
-          key: { type: 'string', enum: ['core', 'diversity', 'radar'] },
-          name: { type: 'string' },
-          nameCn: { type: 'string' },
-          description: { type: 'string' },
-          tags: { type: 'array', items: { type: 'string' } },
-          suggested: { type: 'string' },
-        },
-      },
-    },
-    sources: {
-      type: 'array',
-      minItems: 12,
-      maxItems: 18,
-      items: {
-        type: 'object',
-        required: ['id', 'name', 'handle', 'avatar', 'type', 'role', 'content', 'stance', 'lang', 'focus', 'diversity', 'reason'],
-        properties: {
-          id: { type: 'string' },
-          name: { type: 'string' },
-          handle: { type: 'string' },
-          avatar: { type: 'string' },
-          type: { type: 'string', enum: ['Core', 'Diversity', 'Radar'] },
-          role: { type: 'string' },
-          content: { type: 'string' },
-          stance: { type: 'string' },
-          lang: { type: 'string' },
-          focus: { type: 'number' },
-          diversity: { type: 'number' },
-          reason: { type: 'string' },
-        },
-      },
-    },
-  },
-};
 
 async function generatePortfolio(agent: Agent, topic: string): Promise<PortfolioModel> {
   const result = await agent.complete(portfolioPrompt(topic), {
@@ -210,20 +134,6 @@ async function generatePortfolio(agent: Agent, topic: string): Promise<Portfolio
   };
 }
 
-function portfolioPrompt(topic: string) {
-  return `Generate an attention portfolio for "${topic}". Use real accounts/projects/publications when known.`;
-}
-
-function parseJson(text: string): unknown {
-  const withoutFence = text.trim().replace(/^```(?:json)?/i, '').replace(/```$/i, '').trim();
-  const start = withoutFence.indexOf('{');
-  const end = withoutFence.lastIndexOf('}');
-  if (start < 0 || end < start) {
-    throw new Error('Agent did not return JSON');
-  }
-  return JSON.parse(withoutFence.slice(start, end + 1));
-}
-
 function normalizePortfolio(value: unknown): Required<Portfolio> {
   const portfolio = value && typeof value === 'object' ? value as Portfolio : {};
   return {
@@ -233,38 +143,5 @@ function normalizePortfolio(value: unknown): Required<Portfolio> {
   };
 }
 
-function extractListId(value: unknown): string {
-  if (!value || typeof value !== 'object') return '';
-  const data = value as {
-    list_id?: string;
-    id?: string;
-    data?: { list_id?: string; id?: string };
-    task?: { extract_data?: string };
-  };
-
-  if (data.list_id) return data.list_id;
-  if (data.id) return data.id;
-  if (data.data?.list_id) return data.data.list_id;
-  if (data.data?.id) return data.data.id;
-
-  if (data.task?.extract_data) {
-    try {
-      const parsed = JSON.parse(data.task.extract_data);
-      return parsed.list_id || parsed.id || parsed.data?.list_id || parsed.data?.id || '';
-    } catch {
-      return data.task.extract_data;
-    }
-  }
-
-  return '';
-}
-
-function cleanHandle(value: string) {
-  return value.trim().replace(/^@/, '');
-}
-
-function capitalize(value: string) {
-  return value.charAt(0).toUpperCase() + value.slice(1);
-}
 // @ts-ignore
 globalThis.execute = execute;
