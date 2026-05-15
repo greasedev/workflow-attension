@@ -11,6 +11,8 @@
     "classify:twitter-lists": "tsx src/scripts/classify-twitter-lists.ts",
     "fetch:twitter-list-members": "tsx src/scripts/fetch-twitter-list-members.ts",
     "generate:twitter-kols": "tsx src/scripts/generate-twitter-kols.ts",
+    "tag:twitter-kols": "tsx src/scripts/tag-twitter-kols.ts",
+    "export:twitter-json": "tsx src/scripts/export-twitter-json.ts",
     "test:workflow:portfolio": "npx tsx node_modules/@greaseclaw/workflow-sdk/bin/workflow-dev.mjs src/workflows/generate_portfolio_workflow.ts '{\"task\":\"Generate portfolio\",\"params\":{\"interest\":\"AI Agent\"}}'",
     "test:workflow:lists": "npx tsx node_modules/@greaseclaw/workflow-sdk/bin/workflow-dev.mjs src/workflows/create_x_lists_workflow.ts '{\"task\":\"Create lists\",\"params\":{\"interest\":\"AI Agent\",\"portfolio\":{\"core\":[{\"name\":\"OpenAI\",\"handle\":\"@OpenAI\"}],\"diversity\":[{\"name\":\"Yann LeCun\",\"handle\":\"@ylecun\"}],\"radar\":[{\"name\":\"Hugging Face\",\"handle\":\"@huggingface\"}]}}}'",
     "test:workflow:tweets": "npx tsx node_modules/@greaseclaw/workflow-sdk/bin/workflow-dev.mjs src/workflows/sync_list_tweets_workflow.ts '{\"task\":\"Sync list tweets\",\"params\":{\"interest\":\"AI Agent\",\"limit\":30}}'",

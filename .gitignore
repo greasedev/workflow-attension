@@ -4,3 +4,5 @@ dist/
 .claude/settings.local.json
 .env
 data/twitter_lists.sqlite
+data/twitter_lists.sqlite-shm
+data/twitter_lists.sqlite-wal

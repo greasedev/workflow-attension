@@ -67,6 +67,7 @@ async function main() {
 
   const rows = loadKolRows(db, options);
   const records = rows.map(toKolRecord).filter(record => record.influence_score >= options.minScore);
+  clearGeneratedKols(db);
   saveKolRecords(db, options.limit ? records.slice(0, options.limit) : records);
   db.close();
 
@@ -309,6 +310,26 @@ function saveKolRecords(db: SqliteDatabase, records: KolRecord[]) {
     db.exec('ROLLBACK');
     throw error;
   }
+}
+
+function clearGeneratedKols(db: SqliteDatabase) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS kol_tags (
+      domain TEXT NOT NULL,
+      kol_key TEXT NOT NULL,
+      tag_key TEXT NOT NULL,
+      confidence REAL NOT NULL DEFAULT 0,
+      reason TEXT,
+      tagged_at TEXT NOT NULL,
+      PRIMARY KEY (domain, kol_key, tag_key),
+      FOREIGN KEY (kol_key) REFERENCES twitter_kols(kol_key)
+    );
+
+    DELETE FROM kol_tags
+    WHERE kol_key IN (SELECT kol_key FROM twitter_kols);
+
+    DELETE FROM twitter_kols;
+  `);
 }
 
 function migrateLegacyKolTable(db: SqliteDatabase) {
