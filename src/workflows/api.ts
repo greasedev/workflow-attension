@@ -69,7 +69,7 @@ export interface WorkflowApis {
   twitter_list_add: (list_id: string, username: string) => Promise<ExecutionResult>;
   twitter_list_tweets: (list_id: string, limit?: number) => Promise<ExecutionResult>;
   twitter_suggested: (limit?: number) => Promise<ExecutionResult>;
-  twitter_list_members: (list_id: string, limit?: number) => Promise<ExecutionResult>;
+  twitter_list_members: (list_id: string, limit?: number, cursor?: string) => Promise<ExecutionResult>;
   twitter_list_search: (query: string, limit?: number) => Promise<ExecutionResult>;
   weibo_group_set: (user_id: string, group_id: string, dryrun?: boolean) => Promise<ExecutionResult>;
   weibo_group_delete: (name: string, dryrun?: boolean) => Promise<ExecutionResult>;
@@ -604,10 +604,10 @@ export function createWorkflowApis(agent: Agent): WorkflowApis {
    * Get members of a Twitter/X list
    * @endpoint /v1/custom/twitter-list-members
    */
-  async twitter_list_members(list_id: string, limit?: number): Promise<ExecutionResult> {
+  async twitter_list_members(list_id: string, limit?: number, cursor?: string): Promise<ExecutionResult> {
     const { data } = await agent.call<ExecutionResult>('/v1/custom/twitter-list-members', {
       method: 'POST',
-      body: { list_id, limit },
+      body: { list_id, limit, cursor },
     });
     return data;
   },
