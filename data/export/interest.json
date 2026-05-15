@@ -1,0 +1,58 @@
+{
+  "interests": [
+    {
+      "domain": "ai",
+      "name": "AI",
+      "description": "Artificial intelligence KOLs and subfield directions.",
+      "tags": [
+        {
+          "key": "ai_agents",
+          "name": "AI Agents",
+          "description": "Developers and researchers working on autonomous agents, tool-use, and agentic workflows."
+        },
+        {
+          "key": "ai_applications",
+          "name": "AI Applications",
+          "description": "Creators showcasing end-user tools, productivity workflows, and vertical-specific AI software."
+        },
+        {
+          "key": "ai_engineering",
+          "name": "AI Engineering",
+          "description": "Practitioners focused on LLMOps, fine-tuning, RAG, and deploying models into production."
+        },
+        {
+          "key": "ai_infrastructure",
+          "name": "AI Infrastructure",
+          "description": "Specialists in compute, GPUs, distributed training, and the hardware layer of AI."
+        },
+        {
+          "key": "ai_research",
+          "name": "AI Research",
+          "description": "Academics and scientists sharing breakthroughs in deep learning, mathematics, and neural architectures."
+        },
+        {
+          "key": "ai_safety_policy",
+          "name": "AI Safety & Policy",
+          "description": "Thought leaders discussing AI ethics, governance, regulation, and alignment."
+        },
+        {
+          "key": "foundation_models",
+          "name": "Foundation Models",
+          "description": "Experts focusing on LLMs, multimodal models, and large-scale pre-training architectures."
+        },
+        {
+          "key": "generative_media",
+          "name": "Generative Media",
+          "description": "Artists and innovators working with text-to-image, video, and audio generation technologies."
+        },
+        {
+          "key": "open_source_ai",
+          "name": "Open Source AI",
+          "description": "Advocates for open-weights models, open-source datasets, and decentralized AI ecosystems."
+        }
+      ],
+      "kolFile": "kol_ai.json",
+      "kolCount": 749
+    }
+  ]
+}
