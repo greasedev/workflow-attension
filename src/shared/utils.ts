@@ -45,30 +45,55 @@ export function extractListId(value: ExecutionResult): string {
 
   const extractData = value.task?.extract_data;
   if (extractData) {
-    // If extract_data is an array, get the last element
-    if (Array.isArray(extractData)) {
-      const lastElement = extractData[extractData.length - 1];
-      if (lastElement && typeof lastElement === 'object') {
-        const obj = lastElement as { list_id?: string; id?: string; data?: { list_id?: string; id?: string } };
-        return obj.list_id || obj.id || obj.data?.list_id || obj.data?.id || '';
-      }
-      return '';
-    }
+    const extracted = extractListIdFromPayload(extractData);
+    if (extracted) return extracted;
     if (typeof extractData === 'string') {
-      if (extractData.trim().startsWith('{')) {
-        try {
-          const parsed = JSON.parse(extractData);
-          return parsed.list_id || parsed.id || parsed.data?.list_id || parsed.data?.id || '';
-        } catch {
-          return extractData;
-        }
+      const text = extractData.trim();
+      return /^\d+$/.test(text) ? text : '';
+    }
+  }
+
+  return '';
+}
+
+function extractListIdFromPayload(value: unknown): string {
+  if (!value) return '';
+
+  if (typeof value === 'string') {
+    const text = value.trim();
+    if (!text) return '';
+    if (/^\d+$/.test(text)) return text;
+    if (text.startsWith('{') || text.startsWith('[')) {
+      try {
+        return extractListIdFromPayload(JSON.parse(text));
+      } catch {
+        return '';
       }
-      return extractData;
     }
-    if (typeof extractData === 'object' && extractData !== null) {
-      const obj = extractData as { list_id?: string; id?: string; data?: { list_id?: string; id?: string } };
-      return obj.list_id || obj.id || obj.data?.list_id || obj.data?.id || '';
+    return '';
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of [...value].reverse()) {
+      const listId = extractListIdFromPayload(item);
+      if (listId) return listId;
     }
+    return '';
+  }
+
+  if (typeof value === 'object') {
+    const obj = value as {
+      list_id?: unknown;
+      listId?: unknown;
+      id?: unknown;
+      data?: unknown;
+      list?: unknown;
+    };
+    for (const candidate of [obj.list_id, obj.listId, obj.id]) {
+      if (typeof candidate === 'string' && /^\d+$/.test(candidate.trim())) return candidate.trim();
+      if (typeof candidate === 'number') return String(candidate);
+    }
+    return extractListIdFromPayload(obj.data) || extractListIdFromPayload(obj.list);
   }
 
   return '';

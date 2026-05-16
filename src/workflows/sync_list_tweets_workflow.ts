@@ -7,6 +7,10 @@
  * - Scheduled job needs to refresh tweets from prepared X.com lists
  * - User wants to sync tweets from one or more X.com lists
  *
+ *
+ * cron:
+ * - 0 *\\/4 * * *
+ * 
  * input:
  * - name: interest
  *   description: Optional interest area used to filter saved lists

@@ -114,6 +114,30 @@ p { margin: 0; }
 .lead { margin: 18px 0 34px; color: var(--muted); font-size: 17px; }
 .err { margin-top: 8px; color: var(--risk); }
 
+.simple-head {
+  max-width: 760px;
+  margin: 6vh auto 34px;
+  text-align: center;
+}
+
+.simple-head h1 {
+  font-size: clamp(38px, 7vw, 68px);
+}
+
+.simple-section {
+  margin-top: 28px;
+}
+
+.simple-domains {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 16px;
+}
+
+.simple-tags {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 16px;
+}
+
 .row {
   display: flex;
   gap: 12px;
@@ -488,6 +512,8 @@ p { margin: 0; }
   .sources,
   .layout,
   .cols,
+  .simple-domains,
+  .simple-tags,
   .health { grid-template-columns: 1fr; }
 
   .side { position: static; }

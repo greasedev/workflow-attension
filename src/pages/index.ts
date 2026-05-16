@@ -52,6 +52,8 @@ const agent = new Agent(window.agentOptions || {});
 const apis = createWorkflowApis(agent);
 const listKeys: ('core' | 'diversity' | 'radar')[] = ['core', 'diversity', 'radar'];
 const apiIntervalMs = 15_000;
+const addAccountDelayMinMs = 5_000;
+const addAccountDelayMaxMs = 10_000;
 const searchQueryLimit = 3;
 const searchResultLimit = 10;
 const twitterListFetchLimit = 100;
@@ -60,6 +62,7 @@ const listSearchLimit = 30;
 const listSearchQueryLimit = 2;
 const listMembersListLimit = 4;
 const listMembersLimit = 20;
+const duplicateCheckMembersLimit = 200;
 const profileEnrichmentLimit = 12;
 
 type CandidateChannel = 'ai_seed' | 'tweet_search' | 'twitter_suggested' | 'list_search';
@@ -1131,7 +1134,7 @@ async function autoCreate() {
 
   const logs = $('#logs');
   const bar = $('#autoBar') as HTMLElement | null;
-  const totalSteps = Math.max(1, allSources.length);
+  const totalSteps = Math.max(1, allSources.length + 1);
   let done = 0;
   const log = (message: string, status = 'ok') => {
     if (logs) {
@@ -1151,10 +1154,17 @@ async function autoCreate() {
   }
 
   try {
-    log('初始化 workflow SDK page bridge');
+    log('准备添加账号：将先检查目标列表中已有成员，再逐个提交添加请求');
+    log('即将开始连接 X.com，请稍候几秒...');
+    if (bar) bar.style.width = '6%';
+    await sleep(3000);
     if (listKeys.some(key => picked[key].length && !listPlans[key]?.listId)) {
       throw new Error('X.com 列表尚未准备完成，请回到组合结构页确认列表');
     }
+
+    log('开始检查目标列表已有成员');
+    const existingHandlesByList = await readExistingHandlesByTargetList(log);
+    advance();
 
     for (const source of allSources) {
       const key = source.type.toLowerCase() as ListKey;
@@ -1172,8 +1182,21 @@ async function autoCreate() {
         continue;
       }
 
+      const existingHandles = existingHandlesByList.get(listId) || new Set<string>();
+      const normalizedUsername = username.toLowerCase();
+      if (existingHandles.has(normalizedUsername)) {
+        log(`跳过 @${username}：已在 ${source.type} List 中`, 'warn');
+        advance();
+        continue;
+      }
+
+      const waitMs = randomBetween(addAccountDelayMinMs, addAccountDelayMaxMs);
+      log(`等待 ${Math.round(waitMs / 1000)} 秒后添加 @${username}`);
+      await sleep(waitMs);
       log(`添加 @${username} 到 ${source.type} List`);
       await callWithLimit(() => apis.twitter_list_add(listId, username));
+      existingHandles.add(normalizedUsername);
+      existingHandlesByList.set(listId, existingHandles);
       log(`已提交添加请求：@${username}`);
       advance();
     }
@@ -1187,6 +1210,27 @@ async function autoCreate() {
   }
 }
 
+async function readExistingHandlesByTargetList(log: (message: string, status?: string) => void): Promise<Map<string, Set<string>>> {
+  const byList = new Map<string, Set<string>>();
+  const targets = unique(listKeys
+    .filter(key => picked[key].length)
+    .map(key => listPlans[key]?.listId)
+    .filter(Boolean));
+
+  for (const listId of targets) {
+    const plan = Object.values(listPlans).find(item => item.listId === listId);
+    log(`检查 ${plan?.name || listId} 已有成员，避免重复添加`);
+    const response = await callWithLimit(() => apis.twitter_list_members(listId, duplicateCheckMembersLimit));
+    const handles = extractTwitterUserCandidates(response, `existing_list:${plan?.name || listId}`)
+      .map(candidate => cleanHandle(candidate.handle || candidate.username || candidate.name || '').toLowerCase())
+      .filter(Boolean);
+    byList.set(listId, new Set(handles));
+    log(`已读取 ${plan?.name || listId} 的 ${handles.length} 个已有成员`);
+  }
+
+  return byList;
+}
+
 function openPreparedLists() {
   const listIds = unique(listKeys.map(key => listPlans[key]?.listId).filter(Boolean));
   if (!listIds.length) {
@@ -1196,6 +1240,10 @@ function openPreparedLists() {
   for (const listId of listIds) {
     window.open(`https://x.com/i/lists/${encodeURIComponent(listId)}`, '_blank', 'noopener');
   }
+}
+
+function randomBetween(min: number, max: number): number {
+  return Math.round(min + Math.random() * (max - min));
 }
 
 function health(): HealthStats {
