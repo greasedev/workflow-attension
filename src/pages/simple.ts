@@ -600,10 +600,9 @@ function hasApiError(response: ExecutionResult): boolean {
     return /error|failed|失败|错误|exception|not logged|cookie/i.test(extractData);
   }
   if (Array.isArray(extractData)) {
-    return extractData.some(item => {
+    return (extractData as Array<{ error?: string; success?: boolean }>).some(item => {
       if (!item || typeof item !== 'object') return false;
-      const obj = item as { error?: string; success?: boolean };
-      return Boolean(obj.error || obj.success === false);
+      return Boolean(item.error || item.success === false);
     });
   }
   if (typeof extractData === 'object') {

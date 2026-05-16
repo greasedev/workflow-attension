@@ -4,3 +4,4 @@ export * from './types';
 export * from './utils';
 export * from './portfolio';
 export * from './db';
+export * from './sync';

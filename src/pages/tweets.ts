@@ -3,9 +3,11 @@ import {
   escapeAttr,
   escapeHtml,
   getSavedTweets,
+  syncListTweets,
   unique,
   type SavedTweet,
   type TweetMedia,
+  type SyncProgress,
 } from '../shared';
 
 const app = document.querySelector('#app') as HTMLElement;
@@ -19,7 +21,10 @@ declare global {
 
 let tweets: SavedTweet[] = [];
 let loading = true;
+let syncing = false;
+let syncProgress: SyncProgress | null = null;
 let error = '';
+let syncError = '';
 let query = '';
 let listFilter = '全部';
 
@@ -35,6 +40,33 @@ async function loadTweets() {
     error = `读取已保存 Tweet 失败：${(err as Error).message || err}`;
   } finally {
     loading = false;
+    render();
+  }
+}
+
+async function startSync() {
+  syncing = true;
+  syncError = '';
+  syncProgress = { phase: 'prepare', message: '开始同步...', current: 0, total: 0 };
+  render();
+
+  try {
+    const result = await syncListTweets(agent, {
+      interest: listFilter === '全部' ? undefined : listFilter,
+      limit: 20,
+      onProgress: (progress) => {
+        syncProgress = progress;
+        render();
+      },
+    });
+    syncProgress = { phase: 'done', message: result.message, current: result.syncedLists.length, total: result.syncedLists.length };
+    // Reload tweets after sync completes
+    await loadTweets();
+  } catch (err) {
+    syncError = `同步失败：${(err as Error).message || err}`;
+    syncProgress = { phase: 'error', message: syncError, current: 0, total: 0 };
+  } finally {
+    syncing = false;
     render();
   }
 }
@@ -64,14 +96,17 @@ function render() {
     <main>
       <section class="view">
         <div class="nav">
-          <button class="primary" id="refresh">刷新</button>
+          <button class="primary" id="sync" ${syncing ? 'disabled' : ''}>${syncing ? '同步中...' : '同步 Tweets'}</button>
+          <button class="ghost" id="refresh" ${syncing ? 'disabled' : ''}>刷新</button>
         </div>
         <h2>保存的 X.com List Tweets</h2>
         ${error ? `<p class="err" style="text-align:center">${escapeHtml(error)}</p>` : ''}
+        ${syncError ? `<p class="err" style="text-align:center">${escapeHtml(syncError)}</p>` : ''}
+        ${syncProgress ? syncProgressView() : ''}
         <div class="card" style="margin-top:24px">
           <div class="row">
-            <input class="input" id="query" placeholder="搜索作者、正文或列表名" value="${escapeAttr(query)}">
-            <select class="input" id="listFilter">
+            <input class="input" id="query" placeholder="搜索作者、正文或列表名" value="${escapeAttr(query)}" ${syncing ? 'disabled' : ''}>
+            <select class="input" id="listFilter" ${syncing ? 'disabled' : ''}>
               ${lists.map(list => `<option value="${escapeAttr(list)}" ${list === listFilter ? 'selected' : ''}>${escapeHtml(list)}</option>`).join('')}
             </select>
           </div>
@@ -80,6 +115,7 @@ function render() {
       </section>
     </main>`;
 
+  document.querySelector('#sync')?.addEventListener('click', startSync);
   document.querySelector('#refresh')?.addEventListener('click', loadTweets);
   document.querySelector('#query')?.addEventListener('input', event => {
     query = (event.target as HTMLInputElement).value;
@@ -89,6 +125,21 @@ function render() {
     listFilter = (event.target as HTMLSelectElement).value;
     render();
   });
+}
+
+function syncProgressView(): string {
+  const progress = syncProgress!;
+  const pct = progress.total > 0 ? Math.round((progress.current / progress.total) * 100) : 0;
+  return `
+    <div class="sync-progress" style="margin-top:18px">
+      <div class="card">
+        <p style="margin-bottom:12px">${escapeHtml(progress.message)}</p>
+        <div class="progress">
+          <i style="width:${pct}%"></i>
+        </div>
+        <p class="tiny" style="margin-top:8px;text-align:right">${pct}%</p>
+      </div>
+    </div>`;
 }
 
 function loadingView(): string {
@@ -102,7 +153,7 @@ function loadingView(): string {
 
 function tweetListView(items: SavedTweet[]): string {
   if (!items.length) {
-    return `<div class="card" style="margin-top:18px;text-align:center"><p class="muted">暂无保存的 Tweet。先运行同步 List Tweets 的 workflow。</p></div>`;
+    return `<div class="card" style="margin-top:18px;text-align:center"><p class="muted">暂无保存的 Tweet。点击"同步 Tweets"按钮从 X.com Lists 获取新内容。</p></div>`;
   }
   return `<div class="tweet-feed">${items.map(tweetCard).join('')}</div>`;
 }
@@ -112,7 +163,6 @@ function tweetCard(tweet: SavedTweet): string {
   const listTags = (tweet.listNames || []).slice(0, 2).map(name => `<span class="pill">${escapeHtml(name)}</span>`).join('');
   const authorHandle = tweet.author?.replace(/^@/, '') || '';
   const authorDisplay = tweet.authorName || authorHandle || 'Unknown';
-  const authorUrl = authorHandle ? `https://x.com/${authorHandle}` : '';
   const verifiedBadge = tweet.authorVerified ? '<span class="verified" title="Verified">✓</span>' : '';
   const timeAgo = tweet.createdAt ? formatTimeAgo(tweet.createdAt) : '';
   const engagement = formatEngagement(tweet);
