@@ -270,7 +270,7 @@ function landingView(): string {
           <div style="margin-top:8px">${selectedTagNames().map(tag).join('') || tag('全部子方向')}</div>
         </div>` : ''}
       <div class="row" style="justify-content:center;margin-top:26px">
-        <button class="primary" id="start" ${current ? '' : 'disabled'}>生成简版组合</button>
+        <button class="primary" id="start" ${current ? '' : 'disabled'}>生成组合</button>
       </div>
     </section>`;
 }
@@ -495,7 +495,8 @@ async function start() {
   error = '';
   loginRequired = false;
   loginMessage = '';
-  startLoading('生成简版组合', `正在获取 ${domain.name} 的推荐数据并生成 Core / Radar 推荐...`, [
+  startLoading('生成组合', `即将为 ${domain.name} 获取推荐数据，并生成 Core / Radar 组合...`, [
+    '准备生成组合',
     '获取领域推荐数据',
     '按子方向筛选',
     '获取可复用列表',
@@ -503,23 +504,25 @@ async function start() {
   ]);
 
   try {
-    updateLoading(`正在获取 ${domain.name} 推荐数据...`, 28, 0);
+    updateLoading('准备生成组合，请稍候几秒...', 8, 0);
+    await sleep(3000);
+    updateLoading(`正在获取 ${domain.name} 推荐数据...`, 28, 1);
     simpleKolData = await fetchKolData(domain);
-    updateLoading('正在按所选子方向筛选候选账号...', 58, 1);
+    updateLoading('正在按所选子方向筛选候选账号...', 58, 2);
     model = normalizeModel(buildModel(simpleKolData));
     allRecommendedSources = model.sources.map(source => ({ ...source, state: 'new' }));
     picked = emptyPicked();
     filters = { type: '全部', stance: '', lang: '' };
     ownedLists = [];
     listPlans = emptyListPlans();
-    updateLoading('正在获取可复用的 X.com 列表...', 72, 2);
+    updateLoading('正在获取可复用的 X.com 列表...', 72, 3);
     await prepareListPlans();
     await finishRecommendationSetup(false);
   } catch (err) {
     if (isLoginRequiredError(err)) {
       pauseForLogin((err as Error).message);
     } else {
-      error = `生成简版组合失败：${(err as Error).message || err}`;
+      error = `生成组合失败：${(err as Error).message || err}`;
       step = 1;
     }
   } finally {
@@ -531,7 +534,7 @@ async function start() {
 async function continueAfterLogin() {
   loginRequired = false;
   error = '';
-  startLoading('继续生成简版组合', '正在重新获取可复用列表...', [
+  startLoading('继续生成组合', '正在重新获取可复用列表...', [
     '获取可复用列表',
     '移除重复账号',
     '进入推荐列表',
@@ -590,7 +593,24 @@ async function prepareListPlans() {
 }
 
 function hasApiError(response: ExecutionResult): boolean {
-  return response.success === false || Boolean(response.error);
+  if (response.success === false || response.error) return true;
+  const extractData = response.task?.extract_data;
+  if (!extractData) return false;
+  if (typeof extractData === 'string') {
+    return /error|failed|失败|错误|exception|not logged|cookie/i.test(extractData);
+  }
+  if (Array.isArray(extractData)) {
+    return extractData.some(item => {
+      if (!item || typeof item !== 'object') return false;
+      const obj = item as { error?: string; success?: boolean };
+      return Boolean(obj.error || obj.success === false);
+    });
+  }
+  if (typeof extractData === 'object') {
+    const data = extractData as { error?: string; success?: boolean };
+    return Boolean(data.error || data.success === false);
+  }
+  return false;
 }
 
 function loginRequiredError(response: ExecutionResult): Error {

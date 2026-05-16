@@ -1,5 +1,5 @@
 import type { Agent, Dexie } from '@greaseclaw/workflow-sdk';
-import type { PortfolioModel, SavedTweet, SearchTweet, Source, TwitterUserCandidate } from './types';
+import type { PortfolioModel, SavedTweet, SearchTweet, Source, TwitterUserCandidate, TweetMedia, TweetMention } from './types';
 
 type DbAgent = Pick<Agent, 'getDb'>;
 
@@ -155,17 +155,32 @@ export async function saveTweets(
     const existing = await table.get(tweet.id) as SavedTweet | undefined;
     const listIds = unique([...(existing?.listIds || []), list.listId]);
     const listNames = unique([...(existing?.listNames || []), list.listName]);
+    const user = tweet.user;
     await table.put({
       ...(existing || {}),
       id: tweet.id,
       interestId: existing?.interestId || interestId,
       listIds,
       listNames,
-      author: tweet.author || existing?.author || '',
+      userId: user?.id || existing?.userId,
+      author: tweet.author || user?.screen_name || existing?.author || '',
+      authorName: user?.name || existing?.authorName,
+      authorAvatar: user?.avatar_url || existing?.authorAvatar,
+      authorVerified: user?.is_verified ?? existing?.authorVerified,
+      authorFollowers: user?.followers_count ?? existing?.authorFollowers,
+      authorBio: user?.description || existing?.authorBio,
       text: tweet.text || existing?.text || '',
       url: tweet.url || existing?.url || '',
-      likes: tweet.likes || existing?.likes || '',
-      views: tweet.views || existing?.views || '',
+      likes: tweet.likes ?? existing?.likes ?? 0,
+      retweets: tweet.retweets ?? existing?.retweets ?? 0,
+      replies: tweet.replies ?? existing?.replies ?? 0,
+      quotes: tweet.quotes ?? existing?.quotes ?? 0,
+      bookmarks: tweet.bookmarks ?? existing?.bookmarks ?? 0,
+      lang: tweet.lang || existing?.lang,
+      media: mergeArrays(existing?.media, tweet.media) as TweetMedia[] | undefined,
+      hashtags: mergeArrays(existing?.hashtags, tweet.hashtags) as string[] | undefined,
+      mentions: mergeArrays(existing?.mentions, tweet.mentions) as TweetMention[] | undefined,
+      isRetweet: tweet.is_retweet ?? existing?.isRetweet,
       createdAt: tweet.created_at || existing?.createdAt || '',
       savedAt,
       raw: tweet,
@@ -174,6 +189,11 @@ export async function saveTweets(
   }
 
   return saved;
+}
+
+function mergeArrays<T>(a: T[] | undefined, b: T[] | undefined): T[] | undefined {
+  if (!a?.length && !b?.length) return undefined;
+  return [...(a || []), ...(b || [])];
 }
 
 export async function getSavedTweets(agent: DbAgent, limit = 200): Promise<SavedTweet[]> {
@@ -189,11 +209,11 @@ export async function getSavedLists(agent: DbAgent): Promise<Array<ListRecordInp
 
 async function setupDb(db: Dexie): Promise<Dexie> {
   if ((db as { isOpen?: () => boolean }).isOpen?.()) db.close();
-  db.version(2).stores({
+  db.version(3).stores({
     interest_fields: '&id, topic, updatedAt',
     kols: '&id, interestId, handle, listKey, updatedAt',
     lists: '&id, interestId, listId, key, mode, updatedAt',
-    tweets: '&id, interestId, *listIds, author, createdAt, savedAt',
+    tweets: '&id, interestId, *listIds, author, createdAt, savedAt, authorVerified, likes',
   });
   await db.open();
   return db;

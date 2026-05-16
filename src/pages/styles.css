@@ -524,3 +524,239 @@ p { margin: 0; }
   .ghost,
   .input { width: 100%; }
 }
+
+/* Tweet Feed Styles - Masonry Layout */
+.tweet-feed {
+  margin-top: 18px;
+  column-count: 3;
+  column-gap: 18px;
+}
+
+.tweet-card {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  transition: border-color 0.2s, transform 0.2s;
+  break-inside: avoid;
+  margin-bottom: 18px;
+}
+
+.tweet-card:hover {
+  border-color: #ffffff30;
+  transform: translateY(-2px);
+}
+
+.tweet-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.tweet-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: linear-gradient(135deg, var(--accent), #c2ad68);
+}
+
+.tweet-avatar-placeholder {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), #c2ad68);
+  color: #17130d;
+  font-weight: 800;
+  font-size: 14px;
+}
+
+.tweet-author {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.tweet-author-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text);
+  font-weight: 600;
+  font-size: 15px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tweet-author-name .verified {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #17130d;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.tweet-author-handle {
+  margin-top: 2px;
+  color: var(--dim);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tweet-link {
+  flex-shrink: 0;
+  padding: 8px 12px;
+  border: 1px solid #ffffff18;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.tweet-link:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.tweet-content {
+  margin: 12px 0;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.tweet-content a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.tweet-content a:hover {
+  text-decoration: underline;
+}
+
+.tweet-content .pill.retweet {
+  background: #363030;
+  color: var(--risk);
+}
+
+.tweet-media {
+  margin: 12px 0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.tweet-media.cols-1 {
+  display: block;
+}
+
+.tweet-media.cols-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 4px;
+}
+
+.tweet-media.cols-4 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 4px;
+}
+
+.tweet-media img {
+  width: 100%;
+  height: auto;
+  max-height: 280px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.tweet-media.cols-4 img {
+  max-height: 140px;
+}
+
+.tweet-video {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 160px;
+  background: #1a1a1a;
+  border-radius: 8px;
+}
+
+.tweet-video img {
+  width: 100%;
+  opacity: 0.8;
+}
+
+.video-indicator {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #ffffffd0;
+  color: #000;
+  font-size: 16px;
+}
+
+.tweet-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.tweet-engagement {
+  display: flex;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.tweet-engagement .stat {
+  color: var(--dim);
+}
+
+.tweet-engagement .likes { color: var(--risk); }
+.tweet-engagement .retweets { color: var(--mint); }
+.tweet-engagement .replies { color: var(--accent); }
+
+.tweet-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.tweet-tags .pill {
+  margin: 0;
+  padding: 3px 6px;
+  font-size: 11px;
+}
+
+/* Responsive columns for masonry */
+@media (max-width: 900px) {
+  .tweet-feed { column-count: 2; }
+}
+
+@media (max-width: 600px) {
+  .tweet-feed { column-count: 1; column-gap: 12px; }
+  .tweet-card { padding: 14px; margin-bottom: 12px; }
+}
+
+/* Tweet card content styles */

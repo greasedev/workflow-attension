@@ -1,7 +1,7 @@
 // Shared utility functions
 
 import type { ExecutionResult } from '../workflows/api';
-import type { SearchTweet, Source, TwitterList, TwitterUserCandidate } from './types';
+import type { SearchTweet, Source, TwitterList, TwitterUserCandidate, TweetUser } from './types';
 
 export function profileExists(value: ExecutionResult): boolean {
   if (!value) return false;
@@ -133,7 +133,7 @@ export function sleep(ms: number): Promise<void> {
 
 export function extractSearchTweets(value: ExecutionResult | unknown): SearchTweet[] {
   const raw = extractPayload(value);
-  if (Array.isArray(raw)) return raw.filter(isSearchTweet);
+  if (Array.isArray(raw)) return raw.map(normalizeSearchTweet).filter(isSearchTweet);
   if (raw && typeof raw === 'object') {
     const obj = raw as { data?: unknown; tweets?: unknown; results?: unknown; task?: { extract_data?: unknown } };
     for (const candidate of [obj.data, obj.tweets, obj.results, obj.task?.extract_data]) {
@@ -142,6 +142,16 @@ export function extractSearchTweets(value: ExecutionResult | unknown): SearchTwe
     }
   }
   return [];
+}
+
+function normalizeSearchTweet(value: unknown): SearchTweet {
+  if (!value || typeof value !== 'object') return value as SearchTweet;
+  const item = value as SearchTweet;
+  // If author is not set but user.screen_name exists, use it
+  if (!item.author && item.user?.screen_name) {
+    item.author = item.user.screen_name;
+  }
+  return item;
 }
 
 export function extractTwitterLists(value: ExecutionResult | unknown): TwitterList[] {
@@ -171,14 +181,15 @@ export function extractTwitterUserCandidates(value: ExecutionResult | unknown, s
 }
 
 export function sourcesFromSearchTweets(tweets: SearchTweet[], limit = 18): Source[] {
-  const byAuthor = new Map<string, { author: string; tweets: SearchTweet[]; score: number }>();
+  const byAuthor = new Map<string, { user: TweetUser | undefined; author: string; tweets: SearchTweet[]; score: number }>();
 
   for (const tweet of tweets) {
-    const author = cleanHandle(tweet.author || '');
+    const author = cleanHandle(tweet.author || tweet.user?.screen_name || '');
     if (!author) continue;
-    const current = byAuthor.get(author) || { author, tweets: [], score: 0 };
+    const current = byAuthor.get(author) || { user: tweet.user, author, tweets: [], score: 0 };
     current.tweets.push(tweet);
-    current.score += 1 + likeWeight(tweet.likes);
+    current.score += 1 + likeWeight(tweet.likes || 0) + likeWeight(tweet.retweets || 0);
+    if (tweet.user && !current.user) current.user = tweet.user;
     byAuthor.set(author, current);
   }
 
@@ -187,12 +198,13 @@ export function sourcesFromSearchTweets(tweets: SearchTweet[], limit = 18): Sour
     .slice(0, limit)
     .map((item, index) => {
       const first = item.tweets[0] || {};
+      const user = item.user || first.user;
       const type = sourceTypeForIndex(index);
       return {
         id: `twitter-${item.author.toLowerCase()}`,
-        name: item.author,
+        name: user?.name || item.author,
         handle: `@${item.author}`,
-        avatar: initials(item.author),
+        avatar: user?.avatar_url || initials(user?.name || item.author),
         type,
         role: roleForType(type),
         content: 'Twitter/X search result',
@@ -207,25 +219,27 @@ export function sourcesFromSearchTweets(tweets: SearchTweet[], limit = 18): Sour
 }
 
 export function candidatesFromSearchTweets(tweets: SearchTweet[], limit = 40): TwitterUserCandidate[] {
-  const byAuthor = new Map<string, SearchTweet[]>();
+  const byAuthor = new Map<string, { tweets: SearchTweet[]; user: TweetUser | undefined }>();
 
   for (const tweet of tweets) {
-    const author = cleanHandle(tweet.author || '');
+    const author = cleanHandle(tweet.author || tweet.user?.screen_name || '');
     if (!author) continue;
-    const current = byAuthor.get(author) || [];
-    current.push(tweet);
+    const current = byAuthor.get(author) || { tweets: [], user: undefined };
+    current.tweets.push(tweet);
+    if (tweet.user && !current.user) current.user = tweet.user;
     byAuthor.set(author, current);
   }
 
-  return [...byAuthor.entries()].slice(0, limit).map(([author, items]) => {
+  return [...byAuthor.entries()].slice(0, limit).map(([author, { tweets: items, user }]) => {
     const first = items[0] || {};
+    const userInfo = user || first.user;
     return {
-      name: author,
+      name: userInfo?.name || author,
       handle: `@${author}`,
       username: author,
-      bio: '',
-      followers: undefined,
-      verified: undefined,
+      bio: userInfo?.description || '',
+      followers: userInfo?.followers_count,
+      verified: userInfo?.is_verified,
       reason: `Appeared in ${items.length} relevant tweet search result(s). Representative tweet: ${String(first.text || '').replace(/\s+/g, ' ').slice(0, 180)}`,
       source: 'tweet_search',
     };
@@ -368,16 +382,25 @@ function parseMaybeJson(value: unknown): unknown {
 }
 
 function isSearchTweet(value: unknown): value is SearchTweet {
-  return Boolean(value && typeof value === 'object' && (value as SearchTweet).author);
+  if (!value || typeof value !== 'object') return false;
+  const item = value as SearchTweet;
+  // Check for id (required) and either author or user.screen_name
+  return Boolean(item.id && (item.author || item.user?.screen_name || item.text));
 }
 
-function likeWeight(value?: string): number {
+function likeWeight(value?: string | number): number {
   if (!value) return 0;
-  const normalized = String(value).trim().toUpperCase();
-  const number = Number.parseFloat(normalized.replace(/[^0-9.]/g, ''));
-  if (!Number.isFinite(number)) return 0;
-  const multiplier = normalized.includes('K') ? 1000 : normalized.includes('M') ? 1000000 : 1;
-  return Math.min(8, Math.log10(number * multiplier + 1));
+  let number: number;
+  if (typeof value === 'number') {
+    number = value;
+  } else {
+    const normalized = String(value).trim().toUpperCase();
+    const parsed = Number.parseFloat(normalized.replace(/[^0-9.]/g, ''));
+    if (!Number.isFinite(parsed)) return 0;
+    const multiplier = normalized.includes('K') ? 1000 : normalized.includes('M') ? 1000000 : 1;
+    number = parsed * multiplier;
+  }
+  return Math.min(8, Math.log10(number + 1));
 }
 
 function sourceTypeForIndex(index: number): 'Core' | 'Diversity' | 'Radar' {

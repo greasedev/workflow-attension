@@ -55,14 +55,55 @@ export type PortfolioModel = {
   searchQueries?: string[];
 };
 
+export type TweetUser = {
+  id?: string;
+  name?: string;
+  screen_name?: string;
+  avatar_url?: string;
+  is_verified?: boolean;
+  description?: string;
+  followers_count?: number;
+  location?: string;
+};
+
+export type TweetMedia = {
+  type?: string;
+  url?: string;
+  display_url?: string;
+  expanded_url?: string;
+  width?: number;
+  height?: number;
+  duration_ms?: number;
+  video_url?: string;
+  bitrate?: number;
+};
+
+export type TweetMention = {
+  id?: string;
+  name?: string;
+  screen_name?: string;
+};
+
 export type SearchTweet = {
   id?: string;
+  user?: TweetUser;
   author?: string;
   text?: string;
   created_at?: string;
-  likes?: string;
-  views?: string;
+  likes?: number;
+  retweets?: number;
+  replies?: number;
+  quotes?: number;
+  bookmarks?: number;
   url?: string;
+  lang?: string;
+  conversation_id?: string;
+  media?: TweetMedia[];
+  hashtags?: string[];
+  mentions?: TweetMention[];
+  urls?: string[];
+  is_retweet?: boolean;
+  retweeted_tweet?: SearchTweet;
 };
 
 export type SavedTweet = {
@@ -70,11 +111,25 @@ export type SavedTweet = {
   interestId?: string;
   listIds?: string[];
   listNames?: string[];
+  userId?: string;
   author?: string;
+  authorName?: string;
+  authorAvatar?: string;
+  authorVerified?: boolean;
+  authorFollowers?: number;
+  authorBio?: string;
   text?: string;
   url?: string;
-  likes?: string;
-  views?: string;
+  likes?: number;
+  retweets?: number;
+  replies?: number;
+  quotes?: number;
+  bookmarks?: number;
+  lang?: string;
+  media?: TweetMedia[];
+  hashtags?: string[];
+  mentions?: TweetMention[];
+  isRetweet?: boolean;
   createdAt?: string;
   savedAt?: string;
   raw?: unknown;

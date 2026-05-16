@@ -43,7 +43,7 @@ import {
 } from '../shared';
 
 const apiIntervalMs = 15_000;
-const defaultTweetLimit = 30;
+const defaultTweetLimit = 20;
 
 type SyncList = {
   key: string;
