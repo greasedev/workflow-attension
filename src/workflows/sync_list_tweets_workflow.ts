@@ -35,6 +35,7 @@ import { syncListTweets } from '../shared';
 export async function execute(context: WorkflowContext) {
   const agent = new Agent(context.agentOptions || {});
   const params = context.params || {};
+  const chatId = context.chatId;
 
   const result = await syncListTweets(agent, {
     interest: typeof params.interest === 'string' ? params.interest : undefined,
@@ -42,6 +43,13 @@ export async function execute(context: WorkflowContext) {
     lists: Array.isArray(params.lists) ? params.lists : undefined,
     limit: typeof params.limit === 'number' ? params.limit : undefined,
   });
+
+  // Send summary message to chat
+  if (chatId) {
+    const pageLink = agent.getPageLink('tweets', { interest: result.interest });
+    const summary = `${result.message}\n\n查看已保存的 Tweets：${pageLink}`;
+    await agent.sendText(chatId, 'Tweets 同步完成', summary);
+  }
 
   return {
     success: result.success,

@@ -383,7 +383,7 @@ function sourcesView(): string {
 
   return `
     <section class="view">
-      ${nav('返回', '生成健康报告')}
+      ${nav('返回', '下一步，开始建立关注列表')}
       <div class="health">${healthCards(stats)}</div>
       <div class="grid sources">
         <aside class="card side">${filtersView()}</aside>

@@ -14,7 +14,7 @@ import {
 } from './index';
 
 const apiIntervalMs = 15_000;
-const defaultTweetLimit = 20;
+const defaultTweetLimit = 100;
 
 export type SyncList = {
   key: string;

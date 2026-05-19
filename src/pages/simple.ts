@@ -325,9 +325,10 @@ function sourcesView(): string {
     source.state !== 'ignore'
     && (filters.type === '全部' || source.type === filters.type)
   );
+  const hasNewSources = model.sources.some(source => source.state === 'new');
   return `
     <section class="view">
-      ${nav('返回', '生成健康报告')}
+      ${nav('返回', '下一步，开始建立关注列表')}
       ${error ? `<p class="err" style="text-align:center">${escapeHtml(error)}</p>` : ''}
       <div class="health">${healthCards(health())}</div>
       <div class="card" style="margin-bottom:18px">
@@ -340,7 +341,7 @@ function sourcesView(): string {
         <section class="grid">
           <div class="row" style="justify-content:space-between">
             <h3>推荐来源 (${visibleSources.length})</h3>
-            <button class="primary" id="addAll">关注全部</button>
+            <button class="primary" id="addAll" ${hasNewSources ? '' : 'disabled'}>${hasNewSources ? '关注全部' : '已全部关注'}</button>
           </div>
           ${visibleSources.map(sourceCard).join('')}
         </section>
@@ -398,9 +399,6 @@ function reportView(): string {
       </div>
       <h3 style="margin:28px 0 14px">最终关注组合</h3>
       <div class="grid cols">${listKeys.map(finalList).join('')}</div>
-      <div class="row" style="justify-content:center;margin-top:24px">
-        <a class="ghost" href="./tweets.html">查看已保存 Tweets</a>
-      </div>
     </section>`;
 }
 

@@ -27,6 +27,7 @@ let error = '';
 let syncError = '';
 let query = '';
 let listFilter = '全部';
+let renderTimeout: number | null = null;
 
 loadTweets();
 
@@ -53,7 +54,6 @@ async function startSync() {
   try {
     const result = await syncListTweets(agent, {
       interest: listFilter === '全部' ? undefined : listFilter,
-      limit: 20,
       onProgress: (progress) => {
         syncProgress = progress;
         render();
@@ -72,6 +72,11 @@ async function startSync() {
 }
 
 function render() {
+  // Check if query input is focused before re-rendering
+  const activeElement = document.activeElement as HTMLElement;
+  const wasQueryFocused = activeElement?.id === 'query';
+  const cursorPos = wasQueryFocused ? (activeElement as HTMLInputElement).selectionStart : 0;
+
   const lists = ['全部', ...unique(tweets.flatMap(tweet => tweet.listNames || []))];
   const visible = tweets.filter(tweet => {
     const haystack = [
@@ -105,7 +110,7 @@ function render() {
         ${syncProgress ? syncProgressView() : ''}
         <div class="card" style="margin-top:24px">
           <div class="row">
-            <input class="input" id="query" placeholder="搜索作者、正文或列表名" value="${escapeAttr(query)}" ${syncing ? 'disabled' : ''}>
+            <input type="search" class="input" id="query" placeholder="搜索作者、正文或列表名" value="${escapeAttr(query)}" ${syncing ? 'disabled' : ''}>
             <select class="input" id="listFilter" ${syncing ? 'disabled' : ''}>
               ${lists.map(list => `<option value="${escapeAttr(list)}" ${list === listFilter ? 'selected' : ''}>${escapeHtml(list)}</option>`).join('')}
             </select>
@@ -115,12 +120,29 @@ function render() {
       </section>
     </main>`;
 
+  // Restore focus and cursor position after render
+  if (wasQueryFocused) {
+    const newInput = document.querySelector('#query') as HTMLInputElement;
+    if (newInput) {
+      newInput.focus();
+      newInput.setSelectionRange(cursorPos, cursorPos);
+    }
+  }
+
   document.querySelector('#sync')?.addEventListener('click', startSync);
   document.querySelector('#refresh')?.addEventListener('click', loadTweets);
-  document.querySelector('#query')?.addEventListener('input', event => {
-    query = (event.target as HTMLInputElement).value;
-    render();
-  });
+  const queryInput = document.querySelector('#query') as HTMLInputElement;
+  if (queryInput) {
+    queryInput.addEventListener('input', event => {
+      query = (event.target as HTMLInputElement).value;
+      // Debounce render to avoid page refresh on every keystroke
+      if (renderTimeout) clearTimeout(renderTimeout);
+      renderTimeout = window.setTimeout(() => {
+        renderTimeout = null;
+        render();
+      }, 150);
+    });
+  }
   document.querySelector('#listFilter')?.addEventListener('change', event => {
     listFilter = (event.target as HTMLSelectElement).value;
     render();
@@ -246,8 +268,17 @@ function formatTweetText(text: string): string {
 
 function formatMedia(media?: TweetMedia[]): string {
   if (!media?.length) return '';
-  const images = media.filter(m => m.type === 'photo' || m.url?.includes('pbs.twimg.com'));
-  const videos = media.filter(m => m.type === 'video' || m.video_url);
+  // Deduplicate media by url
+  const seenUrls = new Set<string>();
+  const deduped = media.filter(m => {
+    const url = m.url || m.video_url || '';
+    if (!url || seenUrls.has(url)) return false;
+    seenUrls.add(url);
+    return true;
+  });
+
+  const images = deduped.filter(m => m.type === 'photo' || m.url?.includes('pbs.twimg.com'));
+  const videos = deduped.filter(m => m.type === 'video' || m.video_url);
 
   if (videos.length) {
     const video = videos[0];
